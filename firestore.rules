@@ -1,0 +1,109 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    function isSignedIn() {
+      return request.auth != null;
+    }
+    function isOwner(uid) {
+      return isSignedIn() && request.auth.uid == uid;
+    }
+    function strLen(field, max) {
+      return field is string && field.size() <= max;
+    }
+
+    // ---- Users / profiles ----
+    // Anyone signed in (anonymously) can read any profile (needed to show names/avatars
+    // across planner items, chat, etc). A user can only ever write their own document,
+    // and only the editable fields — createdAt can't be forged after creation.
+    match /users/{uid} {
+      allow read: if isSignedIn();
+      allow create: if isOwner(uid)
+        && strLen(request.resource.data.displayName, 24)
+        && strLen(request.resource.data.get('bio', ''), 80);
+      allow update: if isOwner(uid)
+        && strLen(request.resource.data.displayName, 24)
+        && strLen(request.resource.data.get('bio', ''), 80)
+        // createdAt must never change after creation
+        && request.resource.data.createdAt == resource.data.createdAt;
+      allow delete: if false;
+    }
+
+    // ---- Planner items: shared, editable by any signed-in student ----
+    match /plannerItems/{itemId} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && strLen(request.resource.data.title, 120)
+        && strLen(request.resource.data.get('description', ''), 400)
+        && strLen(request.resource.data.subject, 40)
+        && request.resource.data.category in
+             ['bring', 'reading', 'writing', 'test', 'project', 'important'];
+      // Edits and soft-deletes are allowed from any student (shared source of truth),
+      // but the original author/timestamps can't be rewritten, and updatedBy must be truthful.
+      allow update: if isSignedIn()
+        && request.resource.data.createdBy == resource.data.createdBy
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.updatedBy == request.auth.uid
+        && strLen(request.resource.data.title, 120);
+      allow delete: if false; // use soft-delete (the `deleted` flag) instead
+    }
+
+    // ---- Personal completion state: only the owning user can read/write their own ----
+    match /completionStatus/{docId} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create, update: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && docId == request.resource.data.userId + '_' + request.resource.data.itemId;
+      allow delete: if false;
+    }
+
+    // ---- Personal notes: private, never shared ----
+    match /personalNotes/{noteId} {
+      allow read, update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.ownerId == request.auth.uid
+        && strLen(request.resource.data.text, 300);
+    }
+
+    // ---- Announcements: any student can post, nobody edits after posting ----
+    match /announcements/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.createdBy == request.auth.uid
+        && strLen(request.resource.data.title, 120)
+        && strLen(request.resource.data.get('body', ''), 400);
+      allow update, delete: if false;
+    }
+
+    // ---- Chat messages ----
+    match /messages/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.senderId == request.auth.uid
+        && strLen(request.resource.data.get('text', ''), 500)
+        && (request.resource.data.get('imageUrl', '') == '' ||
+            request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'));
+      // The sender may only soft-delete their own message (clear text/image, flag deleted).
+      // Everyone else may only ever touch the reactions map — nothing else about a
+      // message can be rewritten after it's sent.
+      allow update: if isSignedIn() && (
+        (resource.data.senderId == request.auth.uid
+          && request.resource.data.senderId == resource.data.senderId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions']))
+        ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+      );
+      allow delete: if false;
+    }
+
+    // ---- Reports: write-only from students, readable only via the console/admin ----
+    match /reports/{id} {
+      allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
+      allow read, update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,92 @@
+@import 'tailwindcss';
+
+@theme {
+  --font-display: 'Baloo 2', 'Nunito', system-ui, sans-serif;
+  --font-body: 'Inter', system-ui, sans-serif;
+
+  --color-paper: #f8f4ea;
+  --color-surface: #ffffff;
+  --color-surface-alt: #f1ebdc;
+  --color-ink: #2b2a28;
+  --color-ink-soft: #6b6660;
+  --color-line: #e7ded0;
+  --color-accent: #4a55e1;
+  --color-accent-soft: #e8e9fb;
+  --color-coral: #e15b45;
+  --color-coral-soft: #fbe7e3;
+  --color-success: #2f9e68;
+  --color-success-soft: #e4f5ec;
+}
+
+:root.dark {
+  --color-paper: #14161c;
+  --color-surface: #1d2028;
+  --color-surface-alt: #262a35;
+  --color-ink: #ece9e1;
+  --color-ink-soft: #9a978f;
+  --color-line: #333846;
+  --color-accent: #838cff;
+  --color-accent-soft: #262a4a;
+  --color-coral: #ff8a73;
+  --color-coral-soft: #3a2420;
+  --color-success: #4fce93;
+  --color-success-soft: #1c3629;
+}
+
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    background-color: var(--color-paper);
+    color: var(--color-ink);
+    font-family: var(--font-body);
+    transition: background-color 0.2s ease;
+  }
+  h1, h2, h3, .font-display {
+    font-family: var(--font-display);
+  }
+  ::selection {
+    background: var(--color-accent-soft);
+  }
+}
+
+/* Faint ruled-paper texture used behind the planner — a nod to the notebook, kept subtle. */
+.paper-texture {
+  background-image: repeating-linear-gradient(
+    to bottom,
+    transparent,
+    transparent 35px,
+    var(--color-line) 35px,
+    var(--color-line) 36px
+  );
+  background-attachment: local;
+  opacity: 1;
+}
+.dark .paper-texture {
+  opacity: 0.5;
+}
+
+/* Signature element: a spiral-notebook punch-hole rail used on section headers & the day card. */
+.spiral-rail {
+  background-image: radial-gradient(circle, var(--color-line) 2.5px, transparent 2.6px);
+  background-size: 14px 14px;
+  background-position: center;
+}
+
+@keyframes pop-check {
+  0% { transform: scale(0.8); }
+  50% { transform: scale(1.15); }
+  100% { transform: scale(1); }
+}
+.animate-pop {
+  animation: pop-check 0.25s ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation-duration: 0.01ms !important; transition-duration: 0.01ms !important; }
+}
+
+button, a, input, textarea, select {
+  touch-action: manipulation;
+}
