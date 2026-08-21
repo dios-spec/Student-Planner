@@ -12,6 +12,9 @@ service cloud.firestore {
     function strLen(field, max) {
       return field is string && field.size() <= max;
     }
+    function validClass(c) {
+      return c in ['7A', '7B', '7C'];
+    }
 
     // ---- Users / profiles ----
     // Anyone signed in (anonymously) can read any profile (needed to show names/avatars
@@ -35,6 +38,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
+        && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
         && strLen(request.resource.data.get('description', ''), 400)
         && strLen(request.resource.data.subject, 40)
@@ -72,9 +76,39 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
+        && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
         && strLen(request.resource.data.get('body', ''), 400);
-      allow update, delete: if false;
+      allow update: if false;
+      // Only the author may delete their own announcement.
+      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+    }
+
+    // ---- Posts: image feed. Anyone signed in can create/read; author-only delete. ----
+    match /posts/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*')
+        && strLen(request.resource.data.get('caption', ''), 300);
+      // Any signed-in user may like (touch only the `likes` array); nothing else is editable.
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    // ---- Stories: 24h image stories. Author-only delete; anyone may mark "seen". ----
+    match /stories/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*');
+      // Anyone may mark a story seen (touch only `seenBy`); author may do anything else.
+      allow update: if isSignedIn() && (
+        resource.data.authorId == request.auth.uid ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy'])
+      );
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
     // ---- Chat messages ----
@@ -98,6 +132,127 @@ service cloud.firestore {
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
       );
       allow delete: if false;
+    }
+
+    // ---- Study Help materials: class-scoped image library. Uploader-only delete. ----
+    match /studyMaterials/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.uploaderId == request.auth.uid
+        && validClass(request.resource.data.classId)
+        && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*')
+        && strLen(request.resource.data.title, 120)
+        && strLen(request.resource.data.chapter, 60)
+        && strLen(request.resource.data.subject, 40);
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
+    }
+
+    // ---- Comments on posts: anyone signed in can add/read; author-only delete. ----
+    match /comments/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && strLen(request.resource.data.text, 300)
+        && request.resource.data.postId is string;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    // ---- Conversations (DMs + groups): only members can read/write ----
+    match /conversations/{convId} {
+      function isMember() {
+        return isSignedIn() && request.auth.uid in resource.data.memberIds;
+      }
+      function willBeMember() {
+        return isSignedIn() && request.auth.uid in request.resource.data.memberIds;
+      }
+      function isGroupAdmin() {
+        return isSignedIn()
+          && 'adminIds' in resource.data
+          && request.auth.uid in resource.data.adminIds;
+      }
+
+      // Only members can read a conversation.
+      allow read: if isMember();
+
+      // Creator must include themselves as a member.
+      allow create: if isSignedIn()
+        && request.auth.uid in request.resource.data.memberIds
+        && (request.resource.data.type == 'dm' || request.resource.data.type == 'group');
+
+      // Members can update (send preview, mark read, react). Admins get member management.
+      // Anyone being removed can remove themselves (leave).
+      allow update: if isMember() || willBeMember() || isGroupAdmin();
+
+      allow delete: if false;
+
+      // Messages live in a subcollection — only conversation members may read/write.
+      match /messages/{msgId} {
+        function convMembers() {
+          return get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+        }
+        allow read: if isSignedIn() && request.auth.uid in convMembers();
+        allow create: if isSignedIn()
+          && request.resource.data.senderId == request.auth.uid
+          && request.auth.uid in convMembers();
+        // sender may edit/soft-delete own message; anyone in the conv may react.
+        allow update: if isSignedIn() && request.auth.uid in convMembers() && (
+          resource.data.senderId == request.auth.uid ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        );
+        allow delete: if false;
+      }
+    }
+
+    // ---- Blocks: a user manages only their own block entries ----
+    match /blocks/{id} {
+      allow read: if isSignedIn()
+        && (resource.data.blockerId == request.auth.uid || resource.data.blockedId == request.auth.uid);
+      allow create: if isSignedIn()
+        && request.resource.data.blockerId == request.auth.uid
+        && id == request.auth.uid + '_' + request.resource.data.blockedId;
+      allow delete: if isSignedIn() && resource.data.blockerId == request.auth.uid;
+      allow update: if false;
+    }
+
+    // ---- Reels: short videos. Anyone signed in creates/reads; author-only delete. ----
+    match /reels/{id} {
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
+        && request.resource.data.authorId == request.auth.uid
+        && request.resource.data.videoUrl.matches('https://res\\.cloudinary\\.com/.*')
+        && strLen(request.resource.data.get('caption', ''), 300);
+      allow update: if isSignedIn()
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes']);
+      allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
+    }
+
+    // ---- Notifications: a user reads/updates only their own ----
+    match /notifications/{id} {
+      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      // Anyone signed in can create a notification addressed to another user
+      // (e.g. sending a DM notifies the recipient). Kept permissive but typed.
+      allow create: if isSignedIn() && request.resource.data.userId is string;
+    }
+
+    // ---- Calls: only invited members can read/write the signalling doc ----
+    match /calls/{callId} {
+      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      allow create: if isSignedIn()
+        && request.resource.data.callerId == request.auth.uid
+        && request.auth.uid in request.resource.data.memberIds;
+      allow update: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      allow delete: if false;
+
+      // ICE candidates / SDP exchanged between peers, scoped to the call.
+      match /signals/{sigId} {
+        function callMembers() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data.memberIds;
+        }
+        allow read, create: if isSignedIn() && request.auth.uid in callMembers();
+        allow update, delete: if false;
+      }
     }
 
     // ---- Reports: write-only from students, readable only via the console/admin ----

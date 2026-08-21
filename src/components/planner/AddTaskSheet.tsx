@@ -6,6 +6,7 @@ import type { PlannerCategory, PlannerItem } from '../../types';
 import { addPlannerItem, updatePlannerItem } from '../../firebase/planner';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useActiveClass } from '../../context/ClassContext';
 import { MAX_TASK_DESC_LENGTH, MAX_TASK_TITLE_LENGTH } from '../../utils/moderation';
 
 interface AddTaskSheetProps {
@@ -18,6 +19,7 @@ interface AddTaskSheetProps {
 export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: AddTaskSheetProps) {
   const { user, profile } = useAuth();
   const { show } = useToast();
+  const { activeClass } = useActiveClass();
 
   const [subject, setSubject] = useState('maths');
   const [customSubject, setCustomSubject] = useState('');
@@ -60,6 +62,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
     setSaving(true);
     try {
       const payload = {
+        classId: editingItem?.classId || activeClass,
         date: dateKey,
         subject: finalSubject,
         category,

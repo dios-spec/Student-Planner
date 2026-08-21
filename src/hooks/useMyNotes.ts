@@ -1,14 +1,11 @@
-import { useEffect, useState } from 'react';
 import { watchMyNotes } from '../firebase/notes';
+import { useCachedSnapshot } from './useCachedSnapshot';
 import type { PersonalNote } from '../types';
 
 export function useMyNotes(uid: string | undefined) {
-  const [notes, setNotes] = useState<PersonalNote[] | null>(null);
-
-  useEffect(() => {
-    if (!uid) return;
-    return watchMyNotes(uid, setNotes);
-  }, [uid]);
-
-  return { notes, loading: notes === null };
+  const { data, loading } = useCachedSnapshot<PersonalNote[]>(
+    uid ? `notes:${uid}` : 'notes:none',
+    (cb) => (uid ? watchMyNotes(uid, cb) : () => {})
+  );
+  return { notes: data, loading };
 }

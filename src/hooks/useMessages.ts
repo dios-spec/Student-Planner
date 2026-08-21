@@ -1,14 +1,8 @@
-import { useEffect, useState } from 'react';
 import { watchRecentMessages } from '../firebase/chat';
+import { useCachedSnapshot } from './useCachedSnapshot';
 import type { ChatMessage } from '../types';
 
 export function useMessages() {
-  const [messages, setMessages] = useState<ChatMessage[] | null>(null);
-
-  useEffect(() => {
-    const unsub = watchRecentMessages(setMessages);
-    return unsub;
-  }, []);
-
-  return { messages, loading: messages === null };
+  const { data, loading } = useCachedSnapshot<ChatMessage[]>('messages', watchRecentMessages);
+  return { messages: data, loading };
 }

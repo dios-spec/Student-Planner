@@ -15,6 +15,8 @@ import { usePlannerDay } from '../hooks/usePlannerDay';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { todayKey } from '../utils/date';
+import { useActiveClass } from '../context/ClassContext';
+import ClassSelector from '../components/layout/ClassSelector';
 import { setCompletion, softDeletePlannerItem, restorePlannerItem } from '../firebase/planner';
 import { CATEGORY_ORDER } from '../data/categories';
 import type { PlannerItem } from '../types';
@@ -22,8 +24,9 @@ import type { PlannerItem } from '../types';
 export default function PlannerPage() {
   const { user, profile } = useAuth();
   const { show } = useToast();
+  const { activeClass } = useActiveClass();
   const [dateKey, setDateKey] = useState(todayKey());
-  const { items, completions, loading } = usePlannerDay(dateKey, user?.uid);
+  const { items, completions, loading } = usePlannerDay(activeClass, dateKey, user?.uid);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlannerItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlannerItem | null>(null);
@@ -75,6 +78,7 @@ export default function PlannerPage() {
       />
 
       <div className="paper-texture space-y-5 px-4 pt-4">
+        <ClassSelector />
         <DateHeader dateKey={dateKey} onChange={setDateKey} />
 
         {loading ? (
@@ -82,7 +86,7 @@ export default function PlannerPage() {
         ) : (
           <>
             <AnnouncementsStrip />
-            <ImportantBanner items={grouped.important || []} />
+            <ImportantBanner items={grouped.important || []} onEdit={openEdit} onDelete={setDeleteTarget} />
             <TodaySummary items={items || []} />
 
             {!hasAnything && (

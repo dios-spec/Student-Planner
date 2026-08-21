@@ -15,6 +15,7 @@ interface MessageBubbleProps {
   onDelete: () => void;
   onReport: () => void;
   onImageClick: (url: string) => void;
+  onOpenProfile: (uid: string) => void;
 }
 
 export default function MessageBubble({
@@ -26,6 +27,7 @@ export default function MessageBubble({
   onDelete,
   onReport,
   onImageClick,
+  onOpenProfile,
 }: MessageBubbleProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -41,9 +43,20 @@ export default function MessageBubble({
 
   return (
     <div className={`flex gap-2 ${isMine ? 'flex-row-reverse' : ''}`}>
-      {!isMine && <Avatar name={message.senderName} src={message.senderAvatar} size="sm" />}
+      {!isMine && (
+        <button onClick={() => onOpenProfile(message.senderId)} aria-label={`View ${message.senderName}'s profile`}>
+          <Avatar name={message.senderName} src={message.senderAvatar} size="sm" />
+        </button>
+      )}
       <div className={`max-w-[75%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
-        {!isMine && <span className="mb-0.5 px-1 text-xs font-semibold text-ink-soft">{message.senderName}</span>}
+        {!isMine && (
+          <button
+            onClick={() => onOpenProfile(message.senderId)}
+            className="mb-0.5 px-1 text-xs font-semibold text-ink-soft"
+          >
+            {message.senderName}
+          </button>
+        )}
 
         {message.replyTo && (
           <div className="mb-1 max-w-full truncate rounded-lg border-l-2 border-accent bg-surface-alt px-2 py-1 text-xs text-ink-soft">

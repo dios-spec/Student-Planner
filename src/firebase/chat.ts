@@ -29,12 +29,18 @@ export interface NewMessage {
 }
 
 export async function sendMessage(msg: NewMessage) {
-  await addDoc(messagesCol, {
+  // Firestore rejects `undefined` field values outright — strip any optional
+  // fields (like senderAvatar or replyTo) the caller didn't provide.
+  const payload: Record<string, unknown> = {
     ...msg,
     reactions: {},
     deleted: false,
     createdAt: serverTimestamp(),
+  };
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) delete payload[key];
   });
+  await addDoc(messagesCol, payload);
 }
 
 /** Live listener for the most recent page of chat — older messages are paginated on demand. */

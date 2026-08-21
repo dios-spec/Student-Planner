@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Search, X } from 'lucide-react';
 import { getAllActiveItemsOnce } from '../../firebase/planner';
+import { useActiveClass } from '../../context/ClassContext';
 import { subjectById } from '../../data/subjects';
 import { CATEGORY_META } from '../../data/categories';
 import { relativeDayLabel } from '../../utils/date';
@@ -8,14 +9,15 @@ import type { PlannerItem } from '../../types';
 import EmptyState from './EmptyState';
 
 export default function SearchOverlay({ open, onClose }: { open: boolean; onClose: () => void }) {
+  const { activeClass } = useActiveClass();
   const [query, setQuery] = useState('');
   const [all, setAll] = useState<PlannerItem[] | null>(null);
 
   useEffect(() => {
     if (open && all === null) {
-      getAllActiveItemsOnce().then(setAll);
+      getAllActiveItemsOnce(activeClass).then(setAll);
     }
-  }, [open, all]);
+  }, [open, all, activeClass]);
 
   if (!open) return null;
 

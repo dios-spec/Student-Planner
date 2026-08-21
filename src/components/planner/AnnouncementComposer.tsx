@@ -3,10 +3,12 @@ import Modal from '../shared/Modal';
 import { addAnnouncement } from '../../firebase/announcements';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useActiveClass } from '../../context/ClassContext';
 
 export default function AnnouncementComposer({ open, onClose }: { open: boolean; onClose: () => void }) {
   const { user, profile } = useAuth();
   const { show } = useToast();
+  const { activeClass } = useActiveClass();
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [forDate, setForDate] = useState('');
@@ -17,7 +19,7 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
     if (!user || !profile || !title.trim()) return;
     setSaving(true);
     try {
-      await addAnnouncement(title.trim(), body.trim(), forDate || undefined, user.uid, profile.displayName);
+      await addAnnouncement(activeClass, title.trim(), body.trim(), forDate || undefined, user.uid, profile.displayName);
       show('Announcement posted');
       setTitle('');
       setBody('');

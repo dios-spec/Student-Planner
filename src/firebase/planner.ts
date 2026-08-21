@@ -17,9 +17,16 @@ import type { PlannerItem, CompletionRecord } from '../types';
 const itemsCol = collection(db, 'plannerItems');
 const completionCol = collection(db, 'completionStatus');
 
+/** Firestore rejects `undefined` field values — strip them before writing. */
+function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
+  const clean = { ...obj };
+  Object.keys(clean).forEach((k) => clean[k] === undefined && delete clean[k]);
+  return clean;
+}
+
 export type NewPlannerItem = Pick<
   PlannerItem,
-  'date' | 'subject' | 'category' | 'title'
+  'classId' | 'date' | 'subject' | 'category' | 'title'
 > &
   Partial<Pick<PlannerItem, 'description' | 'dueDate' | 'portion' | 'note'>>;
 
@@ -28,13 +35,13 @@ export async function addPlannerItem(
   userId: string,
   userName: string
 ) {
-  await addDoc(itemsCol, {
+  await addDoc(itemsCol, stripUndefined({
     ...item,
     createdBy: userId,
     createdByName: userName,
     createdAt: serverTimestamp(),
     deleted: false,
-  });
+  }));
 }
 
 export async function updatePlannerItem(
@@ -43,12 +50,12 @@ export async function updatePlannerItem(
   userId: string,
   userName: string
 ) {
-  await updateDoc(doc(itemsCol, id), {
+  await updateDoc(doc(itemsCol, id), stripUndefined({
     ...patch,
     updatedBy: userId,
     updatedByName: userName,
     updatedAt: serverTimestamp(),
-  });
+  }));
 }
 
 /** Soft delete — item is hidden immediately but recoverable via undo. */
@@ -70,8 +77,17 @@ export async function restorePlannerItem(id: string, userId: string, userName: s
 }
 
 /** Live listener for every non-deleted planner item on a given day. */
-export function watchPlannerItemsForDate(dateKey: string, cb: (items: PlannerItem[]) => void) {
-  const q = query(itemsCol, where('date', '==', dateKey), where('deleted', '==', false));
+export function watchPlannerItemsForDate(
+  classId: string,
+  dateKey: string,
+  cb: (items: PlannerItem[]) => void
+) {
+  const q = query(
+    itemsCol,
+    where('classId', '==', classId),
+    where('date', '==', dateKey),
+    where('deleted', '==', false)
+  );
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerItem));
   });
@@ -79,12 +95,14 @@ export function watchPlannerItemsForDate(dateKey: string, cb: (items: PlannerIte
 
 /** Live listener for a date range, used by the Upcoming tab. */
 export function watchPlannerItemsInRange(
+  classId: string,
   startKey: string,
   endKey: string,
   cb: (items: PlannerItem[]) => void
 ) {
   const q = query(
     itemsCol,
+    where('classId', '==', classId),
     where('date', '>=', startKey),
     where('date', '<=', endKey),
     where('deleted', '==', false),
@@ -109,8 +127,8 @@ export function watchMyCompletions(userId: string, cb: (map: Record<string, bool
 }
 
 /** One-off fetch used by the search overlay (small class-sized dataset, so a client-side filter is fine). */
-export async function getAllActiveItemsOnce(): Promise<PlannerItem[]> {
-  const q = query(itemsCol, where('deleted', '==', false));
+export async function getAllActiveItemsOnce(classId: string): Promise<PlannerItem[]> {
+  const q = query(itemsCol, where('classId', '==', classId), where('deleted', '==', false));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerItem);
 }

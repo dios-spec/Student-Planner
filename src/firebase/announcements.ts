@@ -1,10 +1,11 @@
-import { addDoc, collection, onSnapshot, orderBy, query, serverTimestamp, limit } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, limit, where } from 'firebase/firestore';
 import { db } from './config';
 import type { Announcement } from '../types';
 
 const col = collection(db, 'announcements');
 
 export async function addAnnouncement(
+  classId: string,
   title: string,
   body: string,
   forDate: string | undefined,
@@ -12,6 +13,7 @@ export async function addAnnouncement(
   userName: string
 ) {
   await addDoc(col, {
+    classId,
     title,
     body,
     forDate: forDate ?? null,
@@ -21,9 +23,14 @@ export async function addAnnouncement(
   });
 }
 
-export function watchAnnouncements(cb: (items: Announcement[]) => void) {
-  const q = query(col, orderBy('createdAt', 'desc'), limit(20));
+export function watchAnnouncements(classId: string, cb: (items: Announcement[]) => void) {
+  const q = query(col, where('classId', '==', classId), orderBy('createdAt', 'desc'), limit(20));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement));
   });
+}
+
+/** Author-only delete. */
+export async function deleteAnnouncement(id: string) {
+  await deleteDoc(doc(col, id));
 }

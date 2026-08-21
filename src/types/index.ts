@@ -27,6 +27,7 @@ export type PlannerCategory =
 
 export interface PlannerItem {
   id: string;
+  classId: string; // '7A' | '7B' | '7C' — which class this item belongs to
   date: string; // 'YYYY-MM-DD', the day this item applies to
   subject: SubjectId;
   category: PlannerCategory;
@@ -59,6 +60,10 @@ export interface StudentProfile {
   avatarUrl?: string;
   bio?: string;
   emoji?: string;
+  classId?: string; // '7A' | '7B' | '7C'
+  moodEmoji?: string;
+  moodLabel?: string;
+  onboarded?: boolean;
   createdAt: Timestamp | null;
   lastSeen?: Timestamp | null;
 }
@@ -87,6 +92,7 @@ export interface ChatMessage {
 
 export interface Announcement {
   id: string;
+  classId: string;
   title: string;
   body: string;
   forDate?: string;
@@ -105,4 +111,166 @@ export interface PersonalNote {
 
 export interface BlockedUser {
   id: string;
+}
+
+export interface Post {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  imageUrl: string;
+  caption?: string;
+  likes?: string[]; // uids who liked
+  createdAt: Timestamp | null;
+}
+
+export interface Story {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  mediaType?: 'image' | 'video';
+  imageUrl: string;
+  createdAt: Timestamp | null;
+  expiresAt: Timestamp | null; // 24h after creation
+  seenBy?: string[];
+}
+
+export interface Comment {
+  id: string;
+  postId: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  text: string;
+  createdAt: Timestamp | null;
+}
+
+export interface StudyMaterial {
+  id: string;
+  classId: string;
+  subject: string;
+  chapter: string;
+  title: string;
+  imageUrl: string;
+  uploaderId: string;
+  uploaderName: string;
+  uploaderAvatar?: string;
+  createdAt: Timestamp | null;
+}
+
+// ---- Conversations (DMs + group chats) ----
+export type ConversationType = 'dm' | 'group';
+
+export interface Conversation {
+  id: string;
+  type: ConversationType;
+  memberIds: string[];        // all participant uids
+  adminIds?: string[];        // group admins (creator starts as admin)
+  // denormalized member info so the chat list renders without extra reads
+  members: Record<string, { name: string; avatar?: string }>;
+  // group-only
+  name?: string;
+  photoUrl?: string;
+  description?: string;
+  classId?: string;           // optional class association for groups
+  createdBy?: string;
+  createdAt: Timestamp | null;
+  // last-message preview for the list
+  lastText?: string;
+  lastSenderId?: string;
+  lastAt?: Timestamp | null;
+  // per-user unread counts and last-read markers
+  unread?: Record<string, number>;
+}
+
+export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel';
+
+export interface DMMessage {
+  id: string;
+  conversationId: string;
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  kind: DMMessageKind;
+  text?: string;
+  imageUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;     // seconds
+  // shared content preview
+  shared?: {
+    kind: 'post' | 'reel';
+    id: string;
+    imageUrl?: string;
+    thumbUrl?: string;
+    caption?: string;
+    authorName: string;
+  };
+  replyTo?: { id: string; senderName: string; preview: string } | null;
+  reactions?: Record<string, string[]>;
+  createdAt: Timestamp | null;
+  deleted?: boolean;
+}
+
+export interface BlockEntry {
+  id: string;       // `${blockerId}_${blockedId}`
+  blockerId: string;
+  blockedId: string;
+  createdAt: Timestamp | null;
+}
+
+export interface Reel {
+  id: string;
+  authorId: string;
+  authorName: string;
+  authorAvatar?: string;
+  videoUrl: string;
+  thumbUrl?: string;
+  caption?: string;
+  likes?: string[];
+  createdAt: Timestamp | null;
+}
+
+// ---- Notifications ----
+export type NotifType =
+  | 'dm' | 'groupMessage' | 'reply' | 'comment' | 'groupInvite'
+  | 'adminPromote' | 'addedToGroup' | 'homework' | 'exam' | 'announcement'
+  | 'incomingCall' | 'missedCall';
+
+export interface AppNotification {
+  id: string;
+  userId: string;        // recipient
+  type: NotifType;
+  title: string;
+  body?: string;
+  icon?: string;         // avatar / image
+  // where clicking should take them
+  route?: string;
+  read?: boolean;
+  createdAt: Timestamp | null;
+}
+
+// ---- Calls (WebRTC signalling) ----
+export type CallStatus =
+  | 'ringing' | 'connecting' | 'connected' | 'ended' | 'declined' | 'missed' | 'unavailable';
+
+export interface CallDoc {
+  id: string;
+  conversationId: string;
+  type: 'dm' | 'group';
+  callerId: string;
+  callerName: string;
+  callerAvatar?: string;
+  groupName?: string;
+  groupPhoto?: string;
+  memberIds: string[];         // everyone invited to the call
+  status: CallStatus;
+  participants: Record<string, {
+    name: string;
+    avatar?: string;
+    joined: boolean;
+    muted?: boolean;
+  }>;
+  createdAt: Timestamp | null;
+  endedAt?: Timestamp | null;
 }

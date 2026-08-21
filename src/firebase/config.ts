@@ -10,7 +10,6 @@ import {
   persistentLocalCache,
   persistentMultipleTabManager,
 } from 'firebase/firestore';
-import { getStorage } from 'firebase/storage';
 
 // All values come from environment variables — see .env.example.
 // None of this is secret: Firebase web config is meant to be public,
@@ -26,7 +25,6 @@ const firebaseConfig = {
 
 export const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const storage = getStorage(app);
 
 // Offline cache, shared across tabs, set up at init time (the old
 // enableIndexedDbPersistence() call is deprecated — this is the current API).

@@ -1,22 +1,19 @@
 import { useEffect, useState } from 'react';
 import { watchPlannerItemsForDate, watchMyCompletions } from '../firebase/planner';
+import { useCachedSnapshot } from './useCachedSnapshot';
 import type { PlannerItem } from '../types';
 
-export function usePlannerDay(dateKey: string, uid: string | undefined) {
-  const [items, setItems] = useState<PlannerItem[] | null>(null);
+export function usePlannerDay(classId: string, dateKey: string, uid: string | undefined) {
+  const { data: items, loading } = useCachedSnapshot<PlannerItem[]>(
+    `plannerDay:${classId}:${dateKey}`,
+    (cb) => watchPlannerItemsForDate(classId, dateKey, cb)
+  );
+
   const [completions, setCompletions] = useState<Record<string, boolean>>({});
-
-  useEffect(() => {
-    setItems(null);
-    const unsub = watchPlannerItemsForDate(dateKey, setItems);
-    return unsub;
-  }, [dateKey]);
-
   useEffect(() => {
     if (!uid) return;
-    const unsub = watchMyCompletions(uid, setCompletions);
-    return unsub;
+    return watchMyCompletions(uid, setCompletions);
   }, [uid]);
 
-  return { items, completions, loading: items === null };
+  return { items, completions, loading };
 }

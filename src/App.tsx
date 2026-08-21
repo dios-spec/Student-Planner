@@ -1,32 +1,43 @@
-import { useEffect } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
-import { ToastProvider, useToast } from './context/ToastContext';
+import { ToastProvider } from './context/ToastContext';
+import { ClassProvider } from './context/ClassContext';
+import { CallProvider } from './context/CallContext';
 import BottomNav from './components/layout/BottomNav';
 import OfflineBanner from './components/layout/OfflineBanner';
-import PlannerPage from './pages/PlannerPage';
-import UpcomingPage from './pages/UpcomingPage';
-import ChatPage from './pages/ChatPage';
-import ProfilePage from './pages/ProfilePage';
+import SplashScreen from './components/onboarding/SplashScreen';
+import Onboarding from './components/onboarding/Onboarding';
+import NotificationPrompt from './components/shared/NotificationPrompt';
+import { useBrowserNotifications } from './hooks/useBrowserNotifications';
 
-function WelcomeMessage() {
-  const { isFirstVisit, dismissWelcome, loading } = useAuth();
-  const { show } = useToast();
+const HomePage = lazy(() => import('./pages/HomePage'));
+const PlannerPage = lazy(() => import('./pages/PlannerPage'));
+const UpcomingPage = lazy(() => import('./pages/UpcomingPage'));
+const StudyHelpPage = lazy(() => import('./pages/StudyHelpPage'));
+const ReelsPage = lazy(() => import('./pages/ReelsPage'));
+const ChatPage = lazy(() => import('./pages/ChatPage'));
+const MessagesPage = lazy(() => import('./pages/MessagesPage'));
+const ProfilePage = lazy(() => import('./pages/ProfilePage'));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 
-  useEffect(() => {
-    if (!loading && isFirstVisit) {
-      show('Welcome! 👋 Tap your profile whenever you want to change your name or photo.');
-      dismissWelcome();
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [loading, isFirstVisit]);
+function PageFallback() {
+  return (
+    <div className="flex h-[60vh] items-center justify-center">
+      <div className="h-8 w-8 animate-spin rounded-full border-4 border-accent-soft border-t-accent" />
+    </div>
+  );
+}
 
+/** Fires background browser notifications; rendered inside providers so it has auth. */
+function BackgroundNotifier() {
+  useBrowserNotifications();
   return null;
 }
 
 function AppShell() {
-  const { loading } = useAuth();
+  const { loading, profile } = useAuth();
 
   if (loading) {
     return (
@@ -39,27 +50,46 @@ function AppShell() {
     );
   }
 
+  if (profile && !profile.onboarded) {
+    return <Onboarding onDone={() => {}} />;
+  }
+
   return (
-    <div className="min-h-[100dvh] bg-paper text-ink">
-      <OfflineBanner />
-      <WelcomeMessage />
-      <Routes>
-        <Route path="/" element={<PlannerPage />} />
-        <Route path="/upcoming" element={<UpcomingPage />} />
-        <Route path="/chat" element={<ChatPage />} />
-        <Route path="/profile" element={<ProfilePage />} />
-      </Routes>
-      <BottomNav />
-    </div>
+    <ClassProvider>
+      <CallProvider>
+        <BackgroundNotifier />
+        <div className="min-h-[100dvh] bg-paper text-ink">
+          <OfflineBanner />
+          <NotificationPrompt />
+          <Suspense fallback={<PageFallback />}>
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/planner" element={<PlannerPage />} />
+              <Route path="/upcoming" element={<UpcomingPage />} />
+              <Route path="/study" element={<StudyHelpPage />} />
+              <Route path="/reels" element={<ReelsPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/messages" element={<MessagesPage />} />
+              <Route path="/notifications" element={<NotificationsPage />} />
+              <Route path="/profile" element={<ProfilePage />} />
+            </Routes>
+          </Suspense>
+          <BottomNav />
+        </div>
+      </CallProvider>
+    </ClassProvider>
   );
 }
 
 export default function App() {
+  const [splashDone, setSplashDone] = useState(false);
+
   return (
     <ThemeProvider>
       <ToastProvider>
         <AuthProvider>
           <BrowserRouter>
+            {!splashDone && <SplashScreen onDone={() => setSplashDone(true)} />}
             <AppShell />
           </BrowserRouter>
         </AuthProvider>

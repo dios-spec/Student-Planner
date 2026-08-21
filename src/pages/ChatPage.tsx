@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Users } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import MessageBubble from '../components/chat/MessageBubble';
 import MessageInput from '../components/chat/MessageInput';
 import ImagePreviewModal from '../components/chat/ImagePreviewModal';
+import ProfileView from '../components/profile/ProfileView';
 import { PlannerSkeleton } from '../components/shared/Skeleton';
 import EmptyState from '../components/shared/EmptyState';
 import { useMessages } from '../hooks/useMessages';
@@ -15,6 +17,7 @@ import { uploadChatImage } from '../firebase/storage';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { show } = useToast();
   const { messages, loading } = useMessages();
@@ -22,6 +25,7 @@ export default function ChatPage() {
   const [replyTo, setReplyTo] = useState<ChatMessage['replyTo']>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [viewUid, setViewUid] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -94,6 +98,7 @@ export default function ChatPage() {
               show('Message reported. Thanks for flagging it.');
             }}
             onImageClick={setPreviewUrl}
+            onOpenProfile={setViewUid}
           />
         ))}
         <div ref={bottomRef} />
@@ -108,6 +113,7 @@ export default function ChatPage() {
       />
 
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
+      <ProfileView uid={viewUid} onClose={() => setViewUid(null)} onImageClick={setPreviewUrl} onStartDM={(id) => { setViewUid(null); navigate(`/messages?open=${id}`); }} />
     </div>
   );
 }
