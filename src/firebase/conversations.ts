@@ -36,14 +36,26 @@ export function dmId(a: string, b: string): string {
 export async function ensureDM(me: StudentProfile, other: StudentProfile): Promise<string> {
   const id = dmId(me.id, other.id);
   const ref = doc(convCol, id);
-  const snap = await getDoc(ref);
-  if (!snap.exists()) {
+
+  // Try reading first — if the DM already exists we're done.
+  // If it doesn't exist, Firestore's "only members can read" rule has no
+  // memberIds to check and throws permission-denied. That's expected —
+  // catch it and fall through to the create path, which IS allowed.
+  let exists = false;
+  try {
+    const snap = await getDoc(ref);
+    exists = snap.exists();
+  } catch {
+    // permission-denied → doc doesn't exist yet, create it below
+  }
+
+  if (!exists) {
     await setDoc(ref, stripUndefined({
       type: 'dm',
       memberIds: [me.id, other.id],
       members: {
-        [me.id]: { name: me.displayName, avatar: me.avatarUrl },
-        [other.id]: { name: other.displayName, avatar: other.avatarUrl },
+        [me.id]: stripUndefined({ name: me.displayName, avatar: me.avatarUrl }),
+        [other.id]: stripUndefined({ name: other.displayName, avatar: other.avatarUrl }),
       },
       createdAt: serverTimestamp(),
       unread: { [me.id]: 0, [other.id]: 0 },
@@ -102,14 +114,20 @@ export function watchMyConversations(uid: string, cb: (list: Conversation[]) => 
 }
 
 export function watchConversation(id: string, cb: (c: Conversation | null) => void) {
-  return onSnapshot(doc(convCol, id), (snap) =>
-    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Conversation) : null)
+  return onSnapshot(
+    doc(convCol, id),
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as Conversation) : null),
+    () => cb(null) // permission-denied race (doc not visible yet) -- fail soft, don't crash the listener
   );
 }
 
 export async function getConversationOnce(id: string): Promise<Conversation | null> {
-  const snap = await getDoc(doc(convCol, id));
-  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Conversation) : null;
+  try {
+    const snap = await getDoc(doc(convCol, id));
+    return snap.exists() ? ({ id: snap.id, ...snap.data() } as Conversation) : null;
+  } catch {
+    return null; // permission-denied or non-existent
+  }
 }
 
 /** Reset my unread counter when I open a conversation. */

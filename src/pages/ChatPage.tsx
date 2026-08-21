@@ -13,7 +13,7 @@ import { useActiveStudentCount } from '../hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage } from '../firebase/chat';
-import { uploadChatImage } from '../firebase/storage';
+import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
@@ -64,6 +64,26 @@ export default function ChatPage() {
     }
   }
 
+  async function handleSendVoice(blob: Blob, duration: number) {
+    setUploading(true);
+    try {
+      const url = await uploadVoiceClip(blob, user!.uid);
+      await sendMessage({
+        senderId: user!.uid,
+        senderName: profile!.displayName,
+        senderAvatar: profile!.avatarUrl,
+        audioUrl: url,
+        audioDuration: duration,
+        replyTo: replyTo ?? null,
+      });
+      setReplyTo(null);
+    } catch {
+      show("Couldn't send voice message.");
+    } finally {
+      setUploading(false);
+    }
+  }
+
   return (
     <div className="flex h-[calc(100dvh-64px)] flex-col">
       <TopBar
@@ -107,6 +127,7 @@ export default function ChatPage() {
       <MessageInput
         onSend={handleSend}
         onSendImage={handleSendImage}
+        onSendVoice={handleSendVoice}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         uploading={uploading}

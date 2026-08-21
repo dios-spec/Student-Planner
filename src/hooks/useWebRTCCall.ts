@@ -51,10 +51,21 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
         if (!el) {
           el = new Audio();
           el.autoplay = true;
+          el.setAttribute('playsinline', 'true');
+          el.style.display = 'none';
+          document.body.appendChild(el);
           audioElsRef.current.set(otherUid, el);
         }
         el.srcObject = e.streams[0];
-        el.play().catch(() => {});
+        el.play().catch(() => {
+          // Autoplay blocked once negotiation outlasts the original tap.
+          // Retry on the next tap anywhere in the app — a guaranteed gesture.
+          const retry = () => {
+            el!.play().catch(() => {});
+            document.removeEventListener('click', retry);
+          };
+          document.addEventListener('click', retry, { once: true });
+        });
       };
 
       pc.onicecandidate = (e) => {
@@ -129,7 +140,11 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
     unsubsRef.current = [];
     pcsRef.current.forEach((pc) => pc.close());
     pcsRef.current.clear();
-    audioElsRef.current.forEach((el) => { el.pause(); el.srcObject = null; });
+    audioElsRef.current.forEach((el) => {
+      el.pause();
+      el.srcObject = null;
+      el.remove();
+    });
     audioElsRef.current.clear();
     localStreamRef.current?.getTracks().forEach((t) => t.stop());
     localStreamRef.current = null;

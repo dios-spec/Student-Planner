@@ -51,8 +51,10 @@ export async function startCall(conversation: Conversation, caller: StudentProfi
 }
 
 export function watchCall(callId: string, cb: (c: CallDoc | null) => void) {
-  return onSnapshot(doc(callsCol, callId), (snap) =>
-    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as CallDoc) : null)
+  return onSnapshot(
+    doc(callsCol, callId),
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as CallDoc) : null),
+    () => cb(null) // permission-denied race -- fail soft instead of an uncaught crash
   );
 }
 

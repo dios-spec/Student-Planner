@@ -1,22 +1,26 @@
 import { useRef, useState } from 'react';
-import { Send, ImagePlus, Smile, X } from 'lucide-react';
+import { Send, ImagePlus, Smile, Mic, X } from 'lucide-react';
 import EmojiPicker from './EmojiPicker';
+import VoiceRecorderBar from '../dm/VoiceRecorderBar';
+import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
 import { MAX_MESSAGE_LENGTH, containsBlockedLanguage, isRateLimited } from '../../utils/moderation';
 import type { ChatMessage } from '../../types';
 
 interface MessageInputProps {
   onSend: (text: string) => void;
   onSendImage: (file: File) => void;
+  onSendVoice: (blob: Blob, duration: number) => void;
   replyTo: ChatMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
 }
 
-export default function MessageInput({ onSend, onSendImage, replyTo, onCancelReply, uploading }: MessageInputProps) {
+export default function MessageInput({ onSend, onSendImage, onSendVoice, replyTo, onCancelReply, uploading }: MessageInputProps) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+  const rec = useVoiceRecorder();
 
   function handleSend() {
     const trimmed = text.trim();
@@ -34,9 +38,23 @@ export default function MessageInput({ onSend, onSendImage, replyTo, onCancelRep
     setWarning(null);
   }
 
+  async function stopAndSend() {
+    const { blob, duration } = await rec.stop();
+    if (blob && duration >= 1) onSendVoice(blob, duration);
+  }
+
+  if (rec.recording) {
+    return (
+      <div className="border-t border-line bg-surface px-3 py-2">
+        <VoiceRecorderBar seconds={rec.seconds} onCancel={rec.cancel} onSend={stopAndSend} />
+      </div>
+    );
+  }
+
   return (
     <div className="border-t border-line bg-surface px-3 py-2">
       {warning && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{warning}</p>}
+      {rec.error && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{rec.error}</p>}
 
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-alt px-3 py-1.5 text-xs">
@@ -100,14 +118,20 @@ export default function MessageInput({ onSend, onSendImage, replyTo, onCancelRep
           placeholder="Message the class…"
           className="max-h-24 flex-1 resize-none rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-accent"
         />
-        <button
-          onClick={handleSend}
-          disabled={!text.trim()}
-          aria-label="Send"
-          className="shrink-0 rounded-full bg-accent p-2.5 text-white disabled:opacity-40"
-        >
-          <Send size={18} />
-        </button>
+        {text.trim() ? (
+          <button onClick={handleSend} aria-label="Send" className="shrink-0 rounded-full bg-accent p-2.5 text-white">
+            <Send size={18} />
+          </button>
+        ) : (
+          <button
+            onClick={rec.start}
+            disabled={uploading}
+            aria-label="Record voice"
+            className="shrink-0 rounded-full bg-accent p-2.5 text-white disabled:opacity-50"
+          >
+            <Mic size={18} />
+          </button>
+        )}
       </div>
     </div>
   );

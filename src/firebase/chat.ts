@@ -25,6 +25,8 @@ export interface NewMessage {
   senderAvatar?: string;
   text?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;
   replyTo?: ChatMessage['replyTo'];
 }
 

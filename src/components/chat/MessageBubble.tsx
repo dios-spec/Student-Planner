@@ -4,6 +4,7 @@ import type { ChatMessage } from '../../types';
 import Avatar from '../shared/Avatar';
 import EmojiPicker from './EmojiPicker';
 import ReactionRow from './ReactionRow';
+import VoicePlayer from '../dm/VoicePlayer';
 import { relativeTime } from '../../utils/date';
 
 interface MessageBubbleProps {
@@ -77,6 +78,9 @@ export default function MessageBubble({
               onClick={() => onImageClick(message.imageUrl!)}
               className="mb-1 max-h-56 w-full cursor-pointer rounded-xl object-cover"
             />
+          )}
+          {message.audioUrl && (
+            <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />
           )}
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         </div>

@@ -80,6 +80,8 @@ export interface ChatMessage {
   senderAvatar?: string;
   text?: string;
   imageUrl?: string;
+  audioUrl?: string;
+  audioDuration?: number;
   replyTo?: {
     id: string;
     senderName: string;
