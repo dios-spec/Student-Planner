@@ -3,7 +3,6 @@ import {
   collection,
   deleteDoc,
   doc,
-  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -16,7 +15,6 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Post } from '../types';
-import { pushNotification } from './notifications';
 
 const postsCol = collection(db, 'posts');
 
@@ -59,31 +57,9 @@ export function watchPostsByUser(uid: string, cb: (posts: Post[]) => void) {
 }
 
 export async function toggleLike(postId: string, uid: string, liked: boolean) {
-  const ref = doc(postsCol, postId);
-  const before = await getDoc(ref).catch(() => null);
-
-  await updateDoc(ref, {
+  await updateDoc(doc(postsCol, postId), {
     likes: liked ? arrayRemove(uid) : arrayUnion(uid),
   });
-
-  // Only notify for a new like, never for unlike and never notify yourself.
-  if (!liked && before?.exists()) {
-    const post = before.data() as Post;
-    if (post.authorId && post.authorId !== uid) {
-      void pushNotification(
-        {
-          userId: post.authorId,
-          type: 'postLike',
-          title: 'Someone liked your post',
-          body: post.caption || 'Your post got a new like',
-          icon: post.imageUrl,
-          route: '/',
-          data: { postId },
-        },
-        uid
-      ).catch(() => {});
-    }
-  }
 }
 
 /** Author-only delete. */

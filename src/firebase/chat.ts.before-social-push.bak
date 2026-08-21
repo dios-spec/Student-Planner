@@ -12,11 +12,9 @@ import {
   arrayUnion,
   arrayRemove,
   getDocs,
-  getDoc,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ChatMessage } from '../types';
-import { pushNotification, pushToAll } from './notifications';
 
 const messagesCol = collection(db, 'messages');
 const PAGE_SIZE = 30;
@@ -45,22 +43,6 @@ export async function sendMessage(msg: NewMessage) {
     if (payload[key] === undefined) delete payload[key];
   });
   await addDoc(messagesCol, payload);
-
-  const preview =
-    msg.text?.trim() ||
-    (msg.imageUrl ? 'Photo' : msg.audioUrl ? 'Voice message' : 'New message');
-
-  void pushToAll(
-    {
-      type: 'classMessage',
-      title: 'Class Chat',
-      body: `${msg.senderName}: ${preview}`,
-      icon: msg.senderAvatar,
-      route: '/chat',
-      data: { senderId: msg.senderId },
-    },
-    msg.senderId
-  ).catch(() => {});
 }
 
 /** Live listener for the most recent page of chat — older messages are paginated on demand. */
@@ -85,28 +67,9 @@ export async function loadOlderMessages(beforeCreatedAt: unknown): Promise<ChatM
 
 export async function toggleReaction(messageId: string, emoji: string, uid: string, alreadyReacted: boolean) {
   const ref = doc(messagesCol, messageId);
-  const before = await getDoc(ref).catch(() => null);
-
   await updateDoc(ref, {
     [`reactions.${emoji}`]: alreadyReacted ? arrayRemove(uid) : arrayUnion(uid),
   });
-
-  if (!alreadyReacted && before?.exists()) {
-    const message = before.data() as ChatMessage;
-    if (message.senderId && message.senderId !== uid) {
-      void pushNotification(
-        {
-          userId: message.senderId,
-          type: 'classReaction',
-          title: 'New reaction in Class Chat',
-          body: `Someone reacted ${emoji} to your message`,
-          route: '/chat',
-          data: { messageId },
-        },
-        uid
-      ).catch(() => {});
-    }
-  }
 }
 
 /** Students may only delete their own recent messages (enforced again by Security Rules). */

@@ -237,11 +237,7 @@ export interface Reel {
 export type NotifType =
   | 'dm' | 'groupMessage' | 'reply' | 'comment' | 'groupInvite'
   | 'adminPromote' | 'addedToGroup' | 'homework' | 'exam' | 'announcement'
-  | 'incomingCall' | 'missedCall'
-  | 'postLike'
-  | 'classMessage'
-  | 'classReaction'
-  | 'storyNew';
+  | 'incomingCall' | 'missedCall';
 
 export interface AppNotification {
   id: string;

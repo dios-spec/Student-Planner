@@ -40,7 +40,7 @@ async function requestServerPush(notificationId: string, senderUid: string) {
     if (!user || user.uid !== senderUid) return;
     const idToken = await user.getIdToken();
 
-    const response = await fetch('/api/send-push', {
+    await fetch('/api/send-push', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -48,13 +48,6 @@ async function requestServerPush(notificationId: string, senderUid: string) {
       },
       body: JSON.stringify({ notificationId }),
     });
-
-    const result = await response.json().catch(() => ({}));
-    console.log('[PUSH] server result', response.status, result);
-
-    if (!response.ok) {
-      console.warn('[PUSH] server rejected delivery', response.status, result);
-    }
   } catch (err) {
     // In-app notifications still work even if push delivery is unavailable.
     console.warn('[PUSH] server delivery failed', err);
@@ -106,22 +99,6 @@ export async function pushToClass(
     query(collection(db, 'users'), where('classId', '==', classId), limit(200))
   );
 
-  const ids = snap.docs
-    .filter((d) => d.id !== senderUid && d.data().onboarded !== false)
-    .map((d) => d.id);
-
-  await pushToMany(ids, base, senderUid);
-}
-
-/** Notify every onboarded Student Planner user except the sender. */
-export async function pushToAll(
-  base: Omit<NewNotification, 'userId'>,
-  fromUid?: string
-) {
-  const senderUid = fromUid || auth.currentUser?.uid;
-  if (!senderUid) return;
-
-  const snap = await getDocs(query(collection(db, 'users'), limit(300)));
   const ids = snap.docs
     .filter((d) => d.id !== senderUid && d.data().onboarded !== false)
     .map((d) => d.id);
