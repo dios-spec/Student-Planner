@@ -11,6 +11,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { StudyMaterial } from '../types';
+import { pushToClass } from './notifications';
 
 const col = collection(db, 'studyMaterials');
 
@@ -33,6 +34,19 @@ export interface NewStudyMaterial {
 
 export async function addStudyMaterial(m: NewStudyMaterial) {
   await addDoc(col, stripUndefined({ ...m, createdAt: serverTimestamp() }));
+
+  void pushToClass(
+    m.classId,
+    {
+      type: 'homework',
+      title: 'New Study Help material',
+      body: `${m.subject} • ${m.chapter}: ${m.title}`,
+      icon: m.uploaderAvatar,
+      route: '/study',
+      data: { classId: m.classId, subject: m.subject, chapter: m.chapter },
+    },
+    m.uploaderId
+  ).catch(() => {});
 }
 
 /** Live listener for one class's study materials, newest first. */

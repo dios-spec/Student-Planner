@@ -2,6 +2,7 @@ import {
   addDoc,
   collection,
   doc,
+  getDoc,
   getDocs,
   onSnapshot,
   query,
@@ -13,6 +14,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { PlannerItem, CompletionRecord } from '../types';
+import { pushToClass } from './notifications';
 
 const itemsCol = collection(db, 'plannerItems');
 const completionCol = collection(db, 'completionStatus');
@@ -42,6 +44,22 @@ export async function addPlannerItem(
     createdAt: serverTimestamp(),
     deleted: false,
   }));
+
+  void pushToClass(
+    item.classId,
+    {
+      type: item.category === 'test' ? 'exam' : 'homework',
+      title:
+        item.category === 'test' ? 'New test/exam' :
+        item.category === 'project' ? 'New project' :
+        item.category === 'important' ? 'Important class update' :
+        'New class work',
+      body: `${userName}: ${item.title}`,
+      route: '/planner',
+      data: { classId: item.classId, date: item.date },
+    },
+    userId
+  ).catch(() => {});
 }
 
 export async function updatePlannerItem(
@@ -50,12 +68,33 @@ export async function updatePlannerItem(
   userId: string,
   userName: string
 ) {
+  const before = await getDoc(doc(itemsCol, id)).catch(() => null);
+  const oldItem = before?.exists() ? (before.data() as PlannerItem) : null;
+
   await updateDoc(doc(itemsCol, id), stripUndefined({
     ...patch,
     updatedBy: userId,
     updatedByName: userName,
     updatedAt: serverTimestamp(),
   }));
+
+  const classId = patch.classId || oldItem?.classId;
+  const title = patch.title || oldItem?.title;
+  const date = patch.date || oldItem?.date;
+
+  if (classId && title) {
+    void pushToClass(
+      classId,
+      {
+        type: patch.category === 'test' || oldItem?.category === 'test' ? 'exam' : 'homework',
+        title: 'Planner updated',
+        body: `${userName}: ${title}`,
+        route: '/planner',
+        data: { classId, ...(date ? { date } : {}) },
+      },
+      userId
+    ).catch(() => {});
+  }
 }
 
 /** Soft delete — item is hidden immediately but recoverable via undo. */

@@ -6,12 +6,10 @@ import {
   watchCall,
   joinCall,
   declineCall,
-  getCallOnce,
 } from '../firebase/calls';
 import CallScreen from '../components/call/CallScreen';
 import IncomingCall from '../components/call/IncomingCall';
 import type { CallDoc, Conversation, StudentProfile } from '../types';
-import { primeRingtone } from '../utils/ringtone';
 
 interface CallContextValue {
   startCall: (conversation: Conversation, caller: StudentProfile) => Promise<void>;
@@ -26,17 +24,6 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [activeCall, setActiveCall] = useState<CallDoc | null>(null);
 
-  // Prime Web Audio on the first real gesture so later incoming calls can ring.
-  useEffect(() => {
-    const prime = () => primeRingtone();
-    window.addEventListener('pointerdown', prime, { once: true });
-    window.addEventListener('keydown', prime, { once: true });
-    return () => {
-      window.removeEventListener('pointerdown', prime);
-      window.removeEventListener('keydown', prime);
-    };
-  }, []);
-
   // Watch only genuine incoming calls.
   // Active calls are entered only by startCall() or accept(),
   // so refreshing cannot resurrect an old call.
@@ -48,54 +35,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
     });
   }, [user]);
 
-  // Handle Accept/Decline buttons from a system push notification.
-  useEffect(() => {
-    if (!user) return;
-
-    const url = new URL(window.location.href);
-    const action = url.searchParams.get('callAction');
-    const callId = url.searchParams.get('callId');
-
-    if (!callId || (action !== 'accept' && action !== 'decline')) return;
-
-    let cancelled = false;
-
-    (async () => {
-      const call = await getCallOnce(callId);
-      if (cancelled || !call || !call.memberIds.includes(user.uid)) return;
-
-      if (action === 'accept') {
-        await joinCall(callId, user.uid);
-        if (!cancelled) {
-          setActiveCallId(callId);
-          setIncoming(null);
-        }
-      } else {
-        await declineCall(callId, user.uid, call.type === 'group');
-        if (!cancelled) setIncoming(null);
-      }
-    })()
-      .catch((err) => console.warn('[CALL] push action failed', err))
-      .finally(() => {
-        const clean = new URL(window.location.href);
-        clean.searchParams.delete('callAction');
-        clean.searchParams.delete('callId');
-        window.history.replaceState(
-          {},
-          '',
-          clean.pathname + (clean.search ? clean.search : '') + clean.hash
-        );
-      });
-
-    return () => { cancelled = true; };
-  }, [user]);
-
   // Keep the active call fresh + auto-close when it ends.
   useEffect(() => {
     if (!activeCallId) { setActiveCall(null); return; }
     return watchCall(activeCallId, (c) => {
       setActiveCall(c);
-      if (!c || c.status === 'ended' || c.status === 'declined' || c.status === 'missed' || c.status === 'unavailable') {
+      if (!c || c.status === 'ended' || c.status === 'declined') {
         setActiveCallId(null);
         setActiveCall(null);
       }
@@ -103,23 +48,9 @@ export function CallProvider({ children }: { children: ReactNode }) {
   }, [activeCallId]);
 
   const startCall = useCallback(async (conversation: Conversation, caller: StudentProfile) => {
-    if (!user) throw new Error('Cannot start call while signed out');
-
-    console.log('[CALL] Starting call as Firebase UID:', user.uid);
-
-    const createdCall = await startCallSvc(
-      conversation,
-      caller,
-      user.uid
-    );
-
-    console.log('[CALL] Created Firestore call:', createdCall.id);
-
-    // Open call UI immediately.
-    // Firestore listener will replace this with the server version.
-    setActiveCall(createdCall);
-    setActiveCallId(createdCall.id);
-  }, [user]);
+    const id = await startCallSvc(conversation, caller);
+    setActiveCallId(id);
+  }, []);
 
   async function accept() {
     if (!incoming || !user) return;

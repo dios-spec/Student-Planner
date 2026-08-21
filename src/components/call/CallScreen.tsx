@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
@@ -39,8 +39,8 @@ export default function CallScreen({
   const photo = isGroup ? call.groupPhoto : call.participants[call.memberIds.find((m) => m !== user?.uid) || '']?.avatar;
 
   const statusLabel =
-    call.status === 'ringing' ? 'Calling…'
-    : call.status === 'connecting' ? 'Connecting…'
+    call.status === 'ringing' ? 'Calling...'
+    : call.status === 'connecting' ? 'Connecting...'
     : connected ? fmt(elapsed)
     : call.status;
 
@@ -50,7 +50,7 @@ export default function CallScreen({
   }
 
   return (
-    <div className="fixed inset-0 z-[70] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
+    <div className="fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
       <div className="flex flex-col items-center gap-4">
         {isGroup ? (
           <Avatar name={title} src={photo} size="lg" />
@@ -101,3 +101,5 @@ export default function CallScreen({
     </div>
   );
 }
+
+

@@ -233,9 +233,7 @@ service cloud.firestore {
       allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
       // Anyone signed in can create a notification addressed to another user
       // (e.g. sending a DM notifies the recipient). Kept permissive but typed.
-      allow create: if isSignedIn()
-        && request.resource.data.userId is string
-        && request.resource.data.fromUid == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId is string;
     }
 
     // ---- Calls: only invited members can read/write the signalling doc ----
@@ -252,8 +250,8 @@ service cloud.firestore {
         function callMembers() {
           return get(/databases/$(database)/documents/calls/$(callId)).data.memberIds;
         }
-        allow read, create, update: if isSignedIn() && request.auth.uid in callMembers();
-        allow delete: if false;
+        allow read, create: if isSignedIn() && request.auth.uid in callMembers();
+        allow update, delete: if false;
       }
     }
 

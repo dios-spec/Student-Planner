@@ -12,7 +12,6 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { CallDoc, Conversation, StudentProfile } from '../types';
-import { pushToMany } from './notifications';
 
 const callsCol = collection(db, 'calls');
 
@@ -23,30 +22,22 @@ function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
 }
 
 /** Start a call in a conversation. Returns the call id. */
-export async function startCall(
-  conversation: Conversation,
-  caller: StudentProfile,
-  callerUid: string
-): Promise<CallDoc> {
-  console.log('[CALL] Firebase project:', db.app.options.projectId);
-
+export async function startCall(conversation: Conversation, caller: StudentProfile): Promise<string> {
   const participants: CallDoc['participants'] = {};
-
   conversation.memberIds.forEach((id) => {
     const info = conversation.members[id];
-
     participants[id] = stripUndefined({
-      name: id === callerUid ? caller.displayName : info?.name || 'Student',
-      avatar: id === callerUid ? caller.avatarUrl : info?.avatar,
-      joined: id === callerUid,
+      name: id === caller.id ? caller.displayName : info?.name || 'Student',
+      avatar: id === caller.id ? caller.avatarUrl : info?.avatar,
+      joined: id === caller.id, // caller is immediately in
       muted: false,
     });
   });
 
-  const payload = stripUndefined({
+  const ref = await addDoc(callsCol, stripUndefined({
     conversationId: conversation.id,
     type: conversation.type,
-    callerId: callerUid,
+    callerId: caller.id,
     callerName: caller.displayName,
     callerAvatar: caller.avatarUrl,
     groupName: conversation.type === 'group' ? conversation.name : undefined,
@@ -55,60 +46,16 @@ export async function startCall(
     status: 'ringing',
     participants,
     createdAt: serverTimestamp(),
-  });
-
-  const ref = await addDoc(callsCol, payload);
-
-  console.log('[CALL] Firestore addDoc resolved:', ref.id);
-
-  void pushToMany(
-    conversation.memberIds.filter((id) => id !== callerUid),
-    {
-      type: 'incomingCall',
-      title: conversation.type === 'group' ? (conversation.name || 'Group call') : caller.displayName,
-      body: conversation.type === 'group'
-        ? `${caller.displayName} started a group voice call`
-        : 'Incoming voice call',
-      icon: conversation.type === 'group' ? conversation.photoUrl : caller.avatarUrl,
-      route: `/messages?open=${conversation.id}`,
-      data: {
-        callId: ref.id,
-        conversationId: conversation.id,
-      },
-    },
-    callerUid
-  ).catch((err) => console.warn('[CALL] incoming push failed', err));
-
-  return {
-    id: ref.id,
-    ...payload,
-  } as CallDoc;
+  }));
+  return ref.id;
 }
 
 export function watchCall(callId: string, cb: (c: CallDoc | null) => void) {
-  console.log('[CALL] watchCall subscribing:', callId);
-
   return onSnapshot(
     doc(callsCol, callId),
-
-    (snap) => {
-      console.log(
-        '[CALL] watchCall snapshot:',
-        callId,
-        'exists=',
-        snap.exists(),
-        snap.exists() ? snap.data()?.status : null
-      );
-
-      cb(
-        snap.exists()
-          ? ({ id: snap.id, ...snap.data() } as CallDoc)
-          : null
-      );
-    },
-
+    (snap) => cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as CallDoc) : null),
     (err) => {
-      console.error('[CALL] watchCall ERROR:', callId, err);
+      console.error("[CALL watchCall ERROR]", callId, err);
     }
   );
 }
@@ -147,26 +94,11 @@ export function watchIncomingCalls(uid: string, cb: (call: CallDoc | null) => vo
           if (call.status === 'ringing' || call.status === 'connecting') {
             const age = now - toMs(call);
 
-            if (age > 45 * 1000) {
-              if (call.callerId === uid) {
-                void updateDoc(doc(callsCol, call.id), {
-                  status: 'missed',
-                  endedAt: serverTimestamp(),
-                }).catch(() => {});
-
-                void pushToMany(
-                  call.memberIds.filter((id) => id !== call.callerId),
-                  {
-                    type: 'missedCall',
-                    title: `Missed call from ${call.callerName}`,
-                    body: call.type === 'group' ? (call.groupName || 'Group voice call') : 'Voice call',
-                    icon: call.callerAvatar,
-                    route: `/messages?open=${call.conversationId}`,
-                    data: { callId: call.id, conversationId: call.conversationId },
-                  },
-                  uid
-                ).catch(() => {});
-              }
+            if (age > 2 * 60 * 1000) {
+              void updateDoc(doc(callsCol, call.id), {
+                status: 'ended',
+                endedAt: serverTimestamp(),
+              }).catch(() => {});
 
               return false;
             }
@@ -197,15 +129,6 @@ export function watchIncomingCalls(uid: string, cb: (call: CallDoc | null) => vo
     },
     () => cb(null)
   );
-}
-
-export async function getCallOnce(callId: string): Promise<CallDoc | null> {
-  try {
-    const snap = await getDoc(doc(callsCol, callId));
-    return snap.exists() ? ({ id: snap.id, ...snap.data() } as CallDoc) : null;
-  } catch {
-    return null;
-  }
 }
 
 export async function joinCall(callId: string, uid: string) {

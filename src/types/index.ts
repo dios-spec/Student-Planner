@@ -241,13 +241,14 @@ export type NotifType =
 
 export interface AppNotification {
   id: string;
-  userId: string;        // recipient
+  userId: string;
   type: NotifType;
   title: string;
   body?: string;
-  icon?: string;         // avatar / image
-  // where clicking should take them
+  icon?: string;
   route?: string;
+  fromUid?: string;
+  data?: Record<string, string>;
   read?: boolean;
   createdAt: Timestamp | null;
 }

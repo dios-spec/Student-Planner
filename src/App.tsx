@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+﻿import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -10,7 +10,9 @@ import OfflineBanner from './components/layout/OfflineBanner';
 import SplashScreen from './components/onboarding/SplashScreen';
 import Onboarding from './components/onboarding/Onboarding';
 import NotificationPrompt from './components/shared/NotificationPrompt';
+import LiveNotificationBanner from './components/shared/LiveNotificationBanner';
 import { useBrowserNotifications } from './hooks/useBrowserNotifications';
+import { usePushNotifications } from './hooks/usePushNotifications';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
 const PlannerPage = lazy(() => import('./pages/PlannerPage'));
@@ -38,13 +40,14 @@ function BackgroundNotifier() {
 
 function AppShell() {
   const { loading, profile } = useAuth();
+  usePushNotifications();
 
   if (loading) {
     return (
       <div className="flex h-screen items-center justify-center bg-paper">
         <div className="flex flex-col items-center gap-3">
           <div className="h-10 w-10 animate-spin rounded-full border-4 border-accent-soft border-t-accent" />
-          <p className="text-sm text-ink-soft">Setting things up…</p>
+          <p className="text-sm text-ink-soft">Setting things upâ€¦</p>
         </div>
       </div>
     );
@@ -58,6 +61,7 @@ function AppShell() {
     <ClassProvider>
       <CallProvider>
         <BackgroundNotifier />
+        <LiveNotificationBanner />
         <div className="min-h-[100dvh] bg-paper text-ink">
           <OfflineBanner />
           <NotificationPrompt />
@@ -82,6 +86,7 @@ function AppShell() {
 }
 
 export default function App() {
+
   const [splashDone, setSplashDone] = useState(false);
 
   return (
@@ -97,3 +102,5 @@ export default function App() {
     </ThemeProvider>
   );
 }
+
+

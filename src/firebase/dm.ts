@@ -1,6 +1,7 @@
 import {
   collection,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
@@ -96,7 +97,7 @@ export async function sendDM(a: SendArgs) {
     await pushToMany(
       others,
       {
-        type: 'groupMessage',
+        type: a.replyTo ? 'reply' : 'groupMessage',
         title: `${a.conversation.name || 'Group'}`,
         body: `${a.senderName}: ${preview}`,
         icon: a.conversation.photoUrl,
@@ -109,7 +110,7 @@ export async function sendDM(a: SendArgs) {
       others.map((uid) =>
         pushNotification({
           userId: uid,
-          type: 'dm',
+          type: a.replyTo ? 'reply' : 'dm',
           title: a.senderName,
           body: preview,
           icon: a.senderAvatar,
@@ -137,9 +138,29 @@ export async function toggleDMReaction(
   uid: string,
   already: boolean
 ) {
-  await updateDoc(doc(msgCol(conversationId), messageId), {
+  const ref = doc(msgCol(conversationId), messageId);
+  const before = await getDoc(ref).catch(() => null);
+
+  await updateDoc(ref, {
     [`reactions.${emoji}`]: already ? arrayRemove(uid) : arrayUnion(uid),
   });
+
+  if (!already && before?.exists()) {
+    const original = before.data() as DMMessage;
+    if (original.senderId && original.senderId !== uid) {
+      void pushNotification(
+        {
+          userId: original.senderId,
+          type: 'reply',
+          title: 'New reaction',
+          body: `${emoji} on your message`,
+          route: `/messages?open=${conversationId}`,
+          data: { conversationId, messageId },
+        },
+        uid
+      ).catch(() => {});
+    }
+  }
 }
 
 export async function deleteDMMessage(conversationId: string, messageId: string) {

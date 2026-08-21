@@ -1,34 +1,71 @@
-// Simple looping ringtone using the Web Audio API — no audio file needed.
 let ctx: AudioContext | null = null;
 let interval: number | null = null;
 
+function audioCtor() {
+  return window.AudioContext ||
+    (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
+}
+
+/** Call this from a real user gesture once so later incoming calls can ring. */
+export function primeRingtone() {
+  try {
+    if (!ctx || ctx.state === 'closed') {
+      const Ctor = audioCtor();
+      ctx = new Ctor();
+    }
+    if (ctx.state === 'suspended') void ctx.resume().catch(() => {});
+  } catch {
+    // Web Audio unsupported.
+  }
+}
+
+function playBurst() {
+  if (!ctx || ctx.state !== 'running') return;
+  const now = ctx.currentTime;
+
+  [0, 0.42].forEach((offset) => {
+    const oscA = ctx!.createOscillator();
+    const oscB = ctx!.createOscillator();
+    const gain = ctx!.createGain();
+
+    oscA.frequency.value = 440;
+    oscB.frequency.value = 520;
+    oscA.type = 'sine';
+    oscB.type = 'sine';
+
+    gain.gain.setValueAtTime(0, now + offset);
+    gain.gain.linearRampToValueAtTime(0.12, now + offset + 0.04);
+    gain.gain.linearRampToValueAtTime(0, now + offset + 0.32);
+
+    oscA.connect(gain);
+    oscB.connect(gain);
+    gain.connect(ctx!.destination);
+
+    oscA.start(now + offset);
+    oscB.start(now + offset);
+    oscA.stop(now + offset + 0.34);
+    oscB.stop(now + offset + 0.34);
+  });
+}
+
 export function startRingtone() {
   stopRingtone();
+  primeRingtone();
+
   try {
-    ctx = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
-    const play = () => {
-      if (!ctx) return;
-      const now = ctx.currentTime;
-      [0, 0.4].forEach((offset) => {
-        const osc = ctx!.createOscillator();
-        const gain = ctx!.createGain();
-        osc.frequency.value = 480;
-        osc.type = 'sine';
-        gain.gain.setValueAtTime(0, now + offset);
-        gain.gain.linearRampToValueAtTime(0.15, now + offset + 0.05);
-        gain.gain.linearRampToValueAtTime(0, now + offset + 0.3);
-        osc.connect(gain);
-        gain.connect(ctx!.destination);
-        osc.start(now + offset);
-        osc.stop(now + offset + 0.3);
-      });
-    };
-    play();
-    interval = window.setInterval(play, 2000);
-  } catch { /* audio not available */ }
+    if (ctx?.state === 'suspended') void ctx.resume().catch(() => {});
+    playBurst();
+    interval = window.setInterval(playBurst, 2100);
+    navigator.vibrate?.([700, 250, 700, 250, 900]);
+  } catch {
+    // Audio/vibration unavailable.
+  }
 }
 
 export function stopRingtone() {
-  if (interval) { clearInterval(interval); interval = null; }
-  if (ctx) { ctx.close().catch(() => {}); ctx = null; }
+  if (interval !== null) {
+    clearInterval(interval);
+    interval = null;
+  }
+  navigator.vibrate?.(0);
 }

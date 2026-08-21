@@ -18,6 +18,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Conversation, StudentProfile } from '../types';
+import { pushNotification, pushToMany } from './notifications';
 
 const convCol = collection(db, 'conversations');
 
@@ -94,6 +95,19 @@ export async function createGroup(g: NewGroup): Promise<string> {
     createdAt: serverTimestamp(),
     unread,
   }));
+
+  void pushToMany(
+    g.memberProfiles.map((p) => p.id),
+    {
+      type: 'groupInvite',
+      title: `Added to ${g.name}`,
+      body: `${g.creator.displayName} added you to a group`,
+      icon: g.photoUrl,
+      route: `/messages?open=${ref.id}`,
+      data: { conversationId: ref.id },
+    },
+    g.creator.id
+  ).catch(() => {});
   return ref.id;
 }
 
@@ -140,7 +154,22 @@ export async function updateGroupInfo(
   id: string,
   patch: { name?: string; description?: string; photoUrl?: string }
 ) {
+  const conv = await getConversationOnce(id);
   await updateDoc(doc(convCol, id), stripUndefined(patch));
+
+  if (conv) {
+    void pushToMany(
+      conv.memberIds,
+      {
+        type: 'groupInvite',
+        title: patch.name ? `Group renamed to ${patch.name}` : `${conv.name || 'Group'} updated`,
+        body: 'Group details were changed',
+        icon: patch.photoUrl || conv.photoUrl,
+        route: `/messages?open=${id}`,
+        data: { conversationId: id },
+      }
+    ).catch(() => {});
+  }
 }
 
 export async function addGroupMembers(id: string, profiles: StudentProfile[]) {
@@ -156,21 +185,75 @@ export async function addGroupMembers(id: string, profiles: StudentProfile[]) {
     });
   });
   await batch.commit();
+
+  void Promise.all(
+    profiles.map((p) =>
+      pushNotification({
+        userId: p.id,
+        type: 'addedToGroup',
+        title: `Added to ${conv.name || 'a group'}`,
+        body: 'You were added to a group chat',
+        icon: conv.photoUrl,
+        route: `/messages?open=${id}`,
+        data: { conversationId: id },
+      })
+    )
+  ).catch(() => {});
 }
 
 export async function removeGroupMember(id: string, memberId: string) {
+  const conv = await getConversationOnce(id);
+
   await updateDoc(doc(convCol, id), {
     memberIds: arrayRemove(memberId),
     adminIds: arrayRemove(memberId),
   });
+
+  if (conv) {
+    void pushNotification({
+      userId: memberId,
+      type: 'groupInvite',
+      title: `Removed from ${conv.name || 'group'}`,
+      body: 'You were removed from the group chat',
+      icon: conv.photoUrl,
+      route: '/messages',
+      data: { conversationId: id },
+    }).catch(() => {});
+  }
 }
 
 export async function promoteToAdmin(id: string, memberId: string) {
+  const conv = await getConversationOnce(id);
   await updateDoc(doc(convCol, id), { adminIds: arrayUnion(memberId) });
+
+  if (conv) {
+    void pushNotification({
+      userId: memberId,
+      type: 'adminPromote',
+      title: 'You are now an admin',
+      body: `You were promoted in ${conv.name || 'a group'}`,
+      icon: conv.photoUrl,
+      route: `/messages?open=${id}`,
+      data: { conversationId: id },
+    }).catch(() => {});
+  }
 }
 
 export async function demoteAdmin(id: string, memberId: string) {
+  const conv = await getConversationOnce(id);
   await updateDoc(doc(convCol, id), { adminIds: arrayRemove(memberId) });
+
+  if (conv) {
+    void pushNotification({
+      userId: memberId,
+      type: 'adminPromote',
+      title: 'Admin access removed',
+      body: `You are no longer an admin in ${conv.name || 'the group'}`,
+      icon: conv.photoUrl,
+      route: `/messages?open=${id}`,
+      data: { conversationId: id },
+    }).catch(() => {});
+  }
 }
 
 /** Leave a group. Caller must ensure another admin exists if they're the last one. */

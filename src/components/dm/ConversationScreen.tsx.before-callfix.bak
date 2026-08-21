@@ -107,16 +107,7 @@ export default function ConversationScreen({
         </button>
         {!blocked && (
           <button
-            onClick={async () => {
-              if (!profile) return;
-
-              try {
-                await startCall(conversation, profile);
-              } catch (err) {
-                console.error('startCall failed:', err);
-                show("Couldn't start call. Try again.");
-              }
-            }}
+            onClick={() => profile && startCall(conversation, profile)}
             aria-label="Voice call"
             className="rounded-full p-2 text-accent hover:bg-accent-soft"
           >

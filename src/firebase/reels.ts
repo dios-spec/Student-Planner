@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   limit,
   onSnapshot,
   orderBy,
@@ -15,6 +16,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Reel } from '../types';
+import { pushNotification } from './notifications';
 
 const reelsCol = collection(db, 'reels');
 
@@ -52,7 +54,28 @@ export function watchReelsByUser(uid: string, cb: (reels: Reel[]) => void) {
 }
 
 export async function toggleReelLike(reelId: string, uid: string, liked: boolean) {
-  await updateDoc(doc(reelsCol, reelId), { likes: liked ? arrayRemove(uid) : arrayUnion(uid) });
+  const ref = doc(reelsCol, reelId);
+  const before = await getDoc(ref).catch(() => null);
+
+  await updateDoc(ref, { likes: liked ? arrayRemove(uid) : arrayUnion(uid) });
+
+  if (!liked && before?.exists()) {
+    const reel = before.data() as Reel;
+    if (reel.authorId && reel.authorId !== uid) {
+      void pushNotification(
+        {
+          userId: reel.authorId,
+          type: 'comment',
+          title: 'Someone liked your reel',
+          body: reel.caption || 'Your reel got a new like',
+          icon: reel.thumbUrl,
+          route: '/reels',
+          data: { reelId },
+        },
+        uid
+      ).catch(() => {});
+    }
+  }
 }
 
 export async function deleteReel(reelId: string) {

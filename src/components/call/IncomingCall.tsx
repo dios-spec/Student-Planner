@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+﻿import { useEffect } from 'react';
 import { Phone, PhoneOff } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { startRingtone, stopRingtone } from '../../utils/ringtone';
@@ -22,7 +22,7 @@ export default function IncomingCall({
   }, []);
 
   return (
-    <div className="fixed inset-0 z-[80] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-16 pt-[calc(env(safe-area-inset-top)+4rem)]">
+    <div className="fixed inset-0 z-[220] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-16 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="flex flex-col items-center gap-4">
         <div className="animate-pulse">
           <div className="scale-150">
@@ -61,3 +61,4 @@ export default function IncomingCall({
     </div>
   );
 }
+

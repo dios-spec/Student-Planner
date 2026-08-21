@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
@@ -11,9 +12,8 @@ import {
   updateDoc,
   where,
   writeBatch,
-  getDocs,
 } from 'firebase/firestore';
-import { db } from './config';
+import { auth, db } from './config';
 import type { AppNotification, NotifType } from '../types';
 
 const col = collection(db, 'notifications');
@@ -31,19 +31,79 @@ export interface NewNotification {
   body?: string;
   icon?: string;
   route?: string;
+  data?: Record<string, string>;
 }
 
-/** Create a notification for a user. Never notify yourself. */
+async function requestServerPush(notificationId: string, senderUid: string) {
+  try {
+    const user = auth.currentUser;
+    if (!user || user.uid !== senderUid) return;
+    const idToken = await user.getIdToken();
+
+    await fetch('/api/send-push', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${idToken}`,
+      },
+      body: JSON.stringify({ notificationId }),
+    });
+  } catch (err) {
+    // In-app notifications still work even if push delivery is unavailable.
+    console.warn('[PUSH] server delivery failed', err);
+  }
+}
+
+/** Create an in-app notification and request an FCM push for it. */
 export async function pushNotification(n: NewNotification, fromUid?: string) {
-  if (fromUid && fromUid === n.userId) return;
-  await addDoc(col, stripUndefined({ ...n, read: false, createdAt: serverTimestamp() }));
+  const senderUid = fromUid || auth.currentUser?.uid;
+  if (!senderUid) return;
+  if (senderUid === n.userId) return;
+
+  const ref = await addDoc(
+    col,
+    stripUndefined({
+      ...n,
+      fromUid: senderUid,
+      read: false,
+      createdAt: serverTimestamp(),
+    })
+  );
+
+  void requestServerPush(ref.id, senderUid);
 }
 
-/** Notify several users at once (e.g. a group message). */
-export async function pushToMany(userIds: string[], base: Omit<NewNotification, 'userId'>, fromUid?: string) {
-  await Promise.all(
-    userIds.filter((u) => u !== fromUid).map((userId) => pushNotification({ ...base, userId }))
+/** Notify several users at once. */
+export async function pushToMany(
+  userIds: string[],
+  base: Omit<NewNotification, 'userId'>,
+  fromUid?: string
+) {
+  const senderUid = fromUid || auth.currentUser?.uid;
+  if (!senderUid) return;
+
+  const unique = [...new Set(userIds)].filter((u) => u && u !== senderUid);
+  await Promise.all(unique.map((userId) => pushNotification({ ...base, userId }, senderUid)));
+}
+
+/** Notify all onboarded users in a class except the sender. */
+export async function pushToClass(
+  classId: string,
+  base: Omit<NewNotification, 'userId'>,
+  fromUid?: string
+) {
+  const senderUid = fromUid || auth.currentUser?.uid;
+  if (!senderUid) return;
+
+  const snap = await getDocs(
+    query(collection(db, 'users'), where('classId', '==', classId), limit(200))
   );
+
+  const ids = snap.docs
+    .filter((d) => d.id !== senderUid && d.data().onboarded !== false)
+    .map((d) => d.id);
+
+  await pushToMany(ids, base, senderUid);
 }
 
 export function watchNotifications(uid: string, cb: (items: AppNotification[]) => void) {

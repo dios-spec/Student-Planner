@@ -1,6 +1,7 @@
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, limit, where } from 'firebase/firestore';
 import { db } from './config';
 import type { Announcement } from '../types';
+import { pushToClass } from './notifications';
 
 const col = collection(db, 'announcements');
 
@@ -21,6 +22,18 @@ export async function addAnnouncement(
     createdByName: userName,
     createdAt: serverTimestamp(),
   });
+
+  void pushToClass(
+    classId,
+    {
+      type: 'announcement',
+      title,
+      body,
+      route: '/planner',
+      data: { classId, ...(forDate ? { forDate } : {}) },
+    },
+    userId
+  ).catch(() => {});
 }
 
 export function watchAnnouncements(classId: string, cb: (items: Announcement[]) => void) {

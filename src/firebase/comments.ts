@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -11,6 +12,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Comment } from '../types';
+import { pushNotification } from './notifications';
 
 const commentsCol = collection(db, 'comments');
 
@@ -30,6 +32,25 @@ export interface NewComment {
 
 export async function addComment(c: NewComment) {
   await addDoc(commentsCol, stripUndefined({ ...c, createdAt: serverTimestamp() }));
+
+  const postSnap = await getDoc(doc(db, 'posts', c.postId)).catch(() => null);
+  if (postSnap?.exists()) {
+    const post = postSnap.data() as { authorId?: string; authorName?: string; imageUrl?: string };
+    if (post.authorId && post.authorId !== c.authorId) {
+      void pushNotification(
+        {
+          userId: post.authorId,
+          type: 'comment',
+          title: `${c.authorName} commented on your post`,
+          body: c.text,
+          icon: c.authorAvatar,
+          route: '/',
+          data: { postId: c.postId },
+        },
+        c.authorId
+      ).catch(() => {});
+    }
+  }
 }
 
 /** Live listener for one post's comments, oldest first. */
