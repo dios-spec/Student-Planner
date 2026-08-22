@@ -10,6 +10,7 @@ import { useDMMessages } from '../../hooks/useDMMessages';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCall } from '../../context/CallContext';
+import { useActiveConversation } from '../../context/ActiveConversationContext';
 import { sendDM, toggleDMReaction, deleteDMMessage } from '../../firebase/dm';
 import { markConversationRead } from '../../firebase/conversations';
 import { uploadDMImage, uploadVoiceClip } from '../../firebase/storage';
@@ -30,7 +31,13 @@ export default function ConversationScreen({
   const { user, profile } = useAuth();
   const { show } = useToast();
   const { startCall } = useCall();
+  const { setActiveConversationId } = useActiveConversation();
   const { messages, loading } = useDMMessages(conversation.id);
+
+  useEffect(() => {
+    setActiveConversationId(conversation.id);
+    return () => setActiveConversationId(null);
+  }, [conversation.id, setActiveConversationId]);
   const [replyTo, setReplyTo] = useState<DMMessage['replyTo']>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);

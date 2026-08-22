@@ -5,6 +5,7 @@ import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ClassProvider } from './context/ClassContext';
 import { CallProvider } from './context/CallContext';
+import { ActiveConversationProvider } from './context/ActiveConversationContext';
 import BottomNav from './components/layout/BottomNav';
 import OfflineBanner from './components/layout/OfflineBanner';
 import SplashScreen from './components/onboarding/SplashScreen';
@@ -60,6 +61,7 @@ function AppShell() {
   return (
     <ClassProvider>
       <CallProvider>
+      <ActiveConversationProvider>
         <BackgroundNotifier />
         <LiveNotificationBanner />
         <div className="min-h-[100dvh] bg-paper text-ink">
@@ -80,6 +82,7 @@ function AppShell() {
           </Suspense>
           <BottomNav />
         </div>
+      </ActiveConversationProvider>
       </CallProvider>
     </ClassProvider>
   );
