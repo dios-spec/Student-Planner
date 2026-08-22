@@ -58,7 +58,7 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-paper">
+    <div className="fixed inset-0 z-[110] flex flex-col bg-paper">
       <header className="flex items-center gap-2 border-b border-line bg-surface px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)]">
         <button onClick={onBack} aria-label="Back" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
           <ArrowLeft size={20} />
