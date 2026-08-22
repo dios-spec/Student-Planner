@@ -61,6 +61,28 @@ export default function ConversationScreen({
   const photo = isGroup ? conversation.photoUrl : other?.avatar;
   const [otherProfile, setOtherProfile] = useState<StudentProfile | null>(null);
 
+  // Read receipts: only computed for the sender's most recent message, kept
+  // compact (single label, not per-bubble ticks) per the "don't clutter" rule.
+  const lastMineId = [...(messages || [])].reverse().find((m) => m.senderId === user?.uid)?.id;
+  function receiptLabelFor(m: DMMessage): string | undefined {
+    if (m.id !== lastMineId) return undefined;
+    const createdMs = m.createdAt?.toMillis?.() ?? 0;
+    if (!createdMs) return 'Sent';
+    if (isGroup) {
+      const others = conversation.memberIds.filter((id) => id !== user?.uid);
+      const seenCount = others.filter((id) => {
+        const t = conversation.lastReadAt?.[id];
+        return t && t.toMillis() >= createdMs;
+      }).length;
+      return seenCount > 0 ? `Seen by ${seenCount}` : 'Sent';
+    }
+    const seenAt = conversation.lastReadAt?.[otherId]?.toMillis?.() ?? 0;
+    if (seenAt >= createdMs) return 'Seen';
+    const deliveredAt = otherProfile?.lastSeen?.toMillis?.() ?? 0;
+    if (deliveredAt >= createdMs) return 'Delivered';
+    return 'Sent';
+  }
+
   useEffect(() => {
     if (isGroup || !otherId) { setOtherProfile(null); return; }
     return watchUserProfile(otherId, setOtherProfile);
@@ -196,6 +218,7 @@ export default function ConversationScreen({
             onOpenProfile={onOpenProfile}
             pinned={(conversation.pinned || []).some((p) => p.messageId === m.id)}
             onTogglePin={() => handleTogglePin(m)}
+            receiptLabel={m.senderId === user.uid ? receiptLabelFor(m) : undefined}
           />
         ))}
         <div ref={bottomRef} />

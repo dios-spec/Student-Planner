@@ -33,23 +33,29 @@ export interface NewComment {
 export async function addComment(c: NewComment) {
   await addDoc(commentsCol, stripUndefined({ ...c, createdAt: serverTimestamp() }));
 
+  // postId may point at either a post or (reused from StoryViewer) a story --
+  // check both so the right owner gets notified either way.
   const postSnap = await getDoc(doc(db, 'posts', c.postId)).catch(() => null);
-  if (postSnap?.exists()) {
-    const post = postSnap.data() as { authorId?: string; authorName?: string; imageUrl?: string };
-    if (post.authorId && post.authorId !== c.authorId) {
-      void pushNotification(
-        {
-          userId: post.authorId,
-          type: 'comment',
-          title: `${c.authorName} commented on your post`,
-          body: c.text,
-          icon: c.authorAvatar,
-          route: '/',
-          data: { postId: c.postId },
-        },
-        c.authorId
-      ).catch(() => {});
-    }
+  const storySnap = postSnap?.exists() ? null : await getDoc(doc(db, 'stories', c.postId)).catch(() => null);
+  const owner = postSnap?.exists()
+    ? (postSnap.data() as { authorId?: string }).authorId
+    : storySnap?.exists()
+    ? (storySnap.data() as { authorId?: string }).authorId
+    : undefined;
+
+  if (owner && owner !== c.authorId) {
+    void pushNotification(
+      {
+        userId: owner,
+        type: 'comment',
+        title: `${c.authorName} commented`,
+        body: c.text,
+        icon: c.authorAvatar,
+        route: '/',
+        data: { postId: c.postId },
+      },
+      c.authorId
+    ).catch(() => {});
   }
 }
 

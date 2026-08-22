@@ -21,12 +21,13 @@ interface DMBubbleProps {
   onOpenProfile: (uid: string) => void;
   pinned: boolean;
   onTogglePin: () => void;
+  receiptLabel?: string;
 }
 
 export default function DMBubble({
   message, isMine, myUid, isGroup,
   onReact, onReply, onDelete, onImageClick, onOpenShared, onOpenProfile,
-  pinned, onTogglePin,
+  pinned, onTogglePin, receiptLabel,
 }: DMBubbleProps) {
   const [picker, setPicker] = useState(false);
   const created = message.createdAt?.toDate ? message.createdAt.toDate() : new Date();
@@ -84,6 +85,7 @@ export default function DMBubble({
 
         <div className="mt-0.5 flex items-center gap-2 px-1">
           <span className="text-[11px] text-ink-soft">{relativeTime(created)}</span>
+          {receiptLabel && <span className="text-[11px] font-medium text-accent">{receiptLabel}</span>}
           <button onClick={() => setPicker((o) => !o)} className="text-ink-soft hover:text-accent">
             <SmilePlus size={14} />
           </button>

@@ -146,7 +146,10 @@ export async function getConversationOnce(id: string): Promise<Conversation | nu
 
 /** Reset my unread counter when I open a conversation. */
 export async function markConversationRead(id: string, uid: string) {
-  await updateDoc(doc(convCol, id), { [`unread.${uid}`]: 0 }).catch(() => {});
+  await updateDoc(doc(convCol, id), {
+    [`unread.${uid}`]: 0,
+    [`lastReadAt.${uid}`]: serverTimestamp(),
+  }).catch(() => {});
 }
 
 // ---- Group management ----
