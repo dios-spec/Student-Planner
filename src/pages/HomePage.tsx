@@ -92,7 +92,7 @@ export default function HomePage() {
       </div>
 
       {storyStart !== null && (
-        <StoryViewer groups={groups} startIndex={storyStart} onClose={() => setStoryStart(null)} />
+        <StoryViewer groups={groups} startIndex={storyStart} onClose={() => setStoryStart(null)} onOpenProfile={setViewUid} />
       )}
       <CreateStory open={createStoryOpen} onClose={() => setCreateStoryOpen(false)} />
       <CreatePost open={createPostOpen} onClose={() => setCreatePostOpen(false)} />

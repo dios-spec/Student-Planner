@@ -12,6 +12,7 @@ export default function SharedPreview({
   onOpen: () => void;
 }) {
   const isReel = shared.kind === 'reel';
+  const isStory = shared.kind === 'story';
   const img = shared.thumbUrl || shared.imageUrl;
 
   return (
@@ -37,7 +38,7 @@ export default function SharedPreview({
       </div>
       <div className="min-w-0 flex-1 py-1 pr-2">
         <p className={`text-xs font-semibold ${mine ? 'text-white' : 'text-ink'}`}>
-          {isReel ? '🎬 Reel' : '📮 Post'} · {shared.authorName}
+          {isReel ? '🎬 Reel' : isStory ? '📸 Story' : '📮 Post'} · {shared.authorName}
         </p>
         {shared.caption && (
           <p className={`truncate text-xs ${mine ? 'text-white/70' : 'text-ink-soft'}`}>

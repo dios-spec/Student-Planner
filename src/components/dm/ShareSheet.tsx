@@ -9,7 +9,7 @@ import { useToast } from '../../context/ToastContext';
 import type { Conversation, StudentProfile } from '../../types';
 
 export interface ShareContent {
-  kind: 'post' | 'reel';
+  kind: 'post' | 'reel' | 'story';
   id: string;
   imageUrl?: string;
   thumbUrl?: string;
@@ -53,7 +53,7 @@ export default function ShareSheet({
       senderId: user.uid,
       senderName: profile.displayName,
       senderAvatar: profile.avatarUrl,
-      kind: content!.kind === 'reel' ? 'sharedReel' : 'sharedPost',
+      kind: content!.kind === 'reel' ? 'sharedReel' : content!.kind === 'story' ? 'sharedStory' : 'sharedPost',
       shared: cleanShared,
     });
     setSent((s) => new Set(s).add(key));

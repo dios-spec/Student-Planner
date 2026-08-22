@@ -3,6 +3,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDoc,
   onSnapshot,
   orderBy,
   query,
@@ -10,11 +11,12 @@ import {
   updateDoc,
   where,
   arrayUnion,
+  arrayRemove,
   Timestamp,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { Story } from '../types';
-import { pushToAll } from './notifications';
+import { pushToAll, pushNotification } from './notifications';
 
 const storiesCol = collection(db, 'stories');
 
@@ -77,4 +79,34 @@ export async function markStorySeen(storyId: string, uid: string) {
 
 export async function deleteStory(storyId: string) {
   await deleteDoc(doc(storiesCol, storyId));
+}
+
+export async function toggleStoryLike(storyId: string, uid: string, liked: boolean) {
+  const ref = doc(storiesCol, storyId);
+  const before = await getDoc(ref).catch(() => null);
+
+  await updateDoc(ref, { likes: liked ? arrayRemove(uid) : arrayUnion(uid) });
+
+  if (!liked && before?.exists()) {
+    const story = before.data() as Story;
+    if (story.authorId && story.authorId !== uid) {
+      void pushNotification(
+        {
+          userId: story.authorId,
+          type: 'comment',
+          title: 'Someone liked your story',
+          body: 'Your story got a new like',
+          icon: story.imageUrl,
+          route: '/',
+          data: { storyId },
+        },
+        uid
+      ).catch(() => {});
+    }
+  }
+}
+
+export async function getStoryOnce(storyId: string): Promise<Story | null> {
+  const snap = await getDoc(doc(storiesCol, storyId));
+  return snap.exists() ? ({ id: snap.id, ...snap.data() } as Story) : null;
 }

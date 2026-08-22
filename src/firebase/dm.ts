@@ -50,6 +50,7 @@ function previewFor(a: SendArgs): string {
     case 'voice': return '🎤 Voice message';
     case 'sharedPost': return '📮 Shared a post';
     case 'sharedReel': return '🎬 Shared a reel';
+    case 'sharedStory': return '✨ Shared a story';
     default: return '';
   }
 }

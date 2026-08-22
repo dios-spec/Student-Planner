@@ -136,6 +136,7 @@ export interface Story {
   createdAt: Timestamp | null;
   expiresAt: Timestamp | null; // 24h after creation
   seenBy?: string[];
+  likes?: string[]; // story likes
 }
 
 export interface Comment {
@@ -196,7 +197,7 @@ export interface PinnedMessage {
   pinnedAt: Timestamp | null;
 }
 
-export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel';
+export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel' | 'sharedStory';
 
 export interface DMMessage {
   id: string;
@@ -211,7 +212,7 @@ export interface DMMessage {
   audioDuration?: number;     // seconds
   // shared content preview
   shared?: {
-    kind: 'post' | 'reel';
+    kind: 'post' | 'reel' | 'story';
     id: string;
     imageUrl?: string;
     thumbUrl?: string;

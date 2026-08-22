@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2 } from 'lucide-react';
+import { X, Trash2, Heart, MessageCircle, Send } from 'lucide-react';
 import Avatar from '../shared/Avatar';
+import CommentsSheet from './CommentsSheet';
+import ShareSheet, { type ShareContent } from '../dm/ShareSheet';
 import type { StoryGroup } from '../../hooks/useStories';
-import { markStorySeen, deleteStory } from '../../firebase/stories';
+import { markStorySeen, deleteStory, toggleStoryLike } from '../../firebase/stories';
 import { useAuth } from '../../context/AuthContext';
 import { relativeTime } from '../../utils/date';
 
@@ -10,15 +12,18 @@ interface StoryViewerProps {
   groups: StoryGroup[];
   startIndex: number;
   onClose: () => void;
+  onOpenProfile?: (uid: string) => void;
 }
 
 const STORY_MS = 5000;
 
-export default function StoryViewer({ groups, startIndex, onClose }: StoryViewerProps) {
+export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile }: StoryViewerProps) {
   const { user } = useAuth();
   const [groupIdx, setGroupIdx] = useState(startIndex);
   const [storyIdx, setStoryIdx] = useState(0);
   const [progress, setProgress] = useState(0);
+  const [commentsFor, setCommentsFor] = useState<string | null>(null);
+  const [shareContent, setShareContent] = useState<ShareContent | null>(null);
   const timerRef = useRef<number | null>(null);
 
   const group = groups[groupIdx];
@@ -69,26 +74,27 @@ export default function StoryViewer({ groups, startIndex, onClose }: StoryViewer
 
   if (!group || !story) return null;
   const isMine = story.authorId === user?.uid;
+  const liked = story.likes?.includes(user?.uid || '') ?? false;
   const createdDate = story.createdAt?.toDate ? story.createdAt.toDate() : new Date();
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      {/* progress bars */}
       <div className="flex gap-1 px-3 pt-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         {group.stories.map((s, i) => (
           <div key={s.id} className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/30">
             <div
               className="h-full bg-white"
-              style={{ width: i < storyIdx ? '100%' : i === storyIdx ? `${progress}%` : '0%' }}
+              style={{ width: i < storyIdx ? '100%' : i === storyIdx ? progress + '%' : '0%' }}
             />
           </div>
         ))}
       </div>
 
-      {/* header */}
       <div className="flex items-center gap-2 px-4 py-3">
-        <Avatar name={group.authorName} src={group.authorAvatar} size="sm" />
-        <span className="text-sm font-semibold text-white">{group.authorName}</span>
+        <button onClick={() => onOpenProfile?.(group.authorId)} className="flex items-center gap-2">
+          <Avatar name={group.authorName} src={group.authorAvatar} size="sm" />
+          <span className="text-sm font-semibold text-white">{group.authorName}</span>
+        </button>
         <span className="text-xs text-white/60">{relativeTime(createdDate)}</span>
         <div className="ml-auto flex items-center gap-3">
           {isMine && (
@@ -109,7 +115,6 @@ export default function StoryViewer({ groups, startIndex, onClose }: StoryViewer
         </div>
       </div>
 
-      {/* image or video with tap zones */}
       <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         {story.mediaType === 'video' ? (
           <video src={story.imageUrl} autoPlay playsInline className="max-h-full max-w-full object-contain" />
@@ -119,6 +124,43 @@ export default function StoryViewer({ groups, startIndex, onClose }: StoryViewer
         <button className="absolute inset-y-0 left-0 w-1/3" onClick={back} aria-label="Previous" />
         <button className="absolute inset-y-0 right-0 w-2/3" onClick={advance} aria-label="Next" />
       </div>
+
+      <div className="flex items-center gap-5 px-4 py-3.5">
+        <button
+          onClick={() => user && toggleStoryLike(story.id, user.uid, liked)}
+          className="flex items-center gap-1.5 text-white"
+          aria-label="Like"
+        >
+          <Heart size={24} className={liked ? 'fill-coral text-coral' : ''} />
+          {(story.likes?.length ?? 0) > 0 && (
+            <span className="text-xs text-white/80">{story.likes?.length}</span>
+          )}
+        </button>
+        <button onClick={() => setCommentsFor(story.id)} className="text-white" aria-label="Comment">
+          <MessageCircle size={24} />
+        </button>
+        <button
+          onClick={() =>
+            setShareContent({
+              kind: 'story',
+              id: story.id,
+              imageUrl: story.imageUrl,
+              authorName: group.authorName,
+            })
+          }
+          className="text-white"
+          aria-label="Share"
+        >
+          <Send size={22} />
+        </button>
+      </div>
+
+      <CommentsSheet
+        postId={commentsFor}
+        onClose={() => setCommentsFor(null)}
+        onOpenProfile={(uid) => onOpenProfile?.(uid)}
+      />
+      <ShareSheet content={shareContent} onClose={() => setShareContent(null)} />
     </div>
   );
 }

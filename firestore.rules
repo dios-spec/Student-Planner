@@ -106,7 +106,8 @@ service cloud.firestore {
       // Anyone may mark a story seen (touch only `seenBy`); author may do anything else.
       allow update: if isSignedIn() && (
         resource.data.authorId == request.auth.uid ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy'])
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy']) ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
       );
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }

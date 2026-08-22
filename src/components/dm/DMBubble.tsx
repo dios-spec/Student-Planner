@@ -76,7 +76,7 @@ export default function DMBubble({
           {message.kind === 'voice' && message.audioUrl && (
             <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />
           )}
-          {(message.kind === 'sharedPost' || message.kind === 'sharedReel') && message.shared && (
+          {(message.kind === 'sharedPost' || message.kind === 'sharedReel' || message.kind === 'sharedStory') && message.shared && (
             <SharedPreview shared={message.shared} mine={isMine} onOpen={() => onOpenShared(message.shared!)} />
           )}
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}

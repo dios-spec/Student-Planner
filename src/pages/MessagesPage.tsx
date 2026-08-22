@@ -6,12 +6,13 @@ import ConversationScreen from '../components/dm/ConversationScreen';
 import CreateGroup from '../components/dm/CreateGroup';
 import GroupInfo from '../components/dm/GroupInfo';
 import ProfileView from '../components/profile/ProfileView';
+import SharedStoryModal from '../components/dm/SharedStoryModal';
 import Avatar from '../components/shared/Avatar';
 import { useConversations } from '../hooks/useConversations';
 import { useBlocks } from '../hooks/useBlocks';
 import { getConversationOnce, listAllProfiles } from '../firebase/conversations';
 import { useAuth } from '../context/AuthContext';
-import type { Conversation, DMMessage, StudentProfile } from '../types';
+import type { Conversation, StudentProfile } from '../types';
 
 export default function MessagesPage() {
   const { user } = useAuth();
@@ -22,6 +23,7 @@ export default function MessagesPage() {
   const [createOpen, setCreateOpen] = useState(false);
   const [viewUid, setViewUid] = useState<string | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+  const [sharedStoryId, setSharedStoryId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
   const [allProfiles, setAllProfiles] = useState<StudentProfile[]>([]);
 
@@ -118,7 +120,7 @@ export default function MessagesPage() {
           onBack={() => setActive(null)}
           onOpenProfile={setViewUid}
           onOpenGroupInfo={(c) => setGroupInfo(c)}
-          onOpenShared={(_shared: NonNullable<DMMessage['shared']>) => {}}
+          onOpenShared={(shared) => { if (shared.kind === 'story') setSharedStoryId(shared.id); }}
           blocked={liveActive.type === 'dm' && cannotInteract(otherIdOf(liveActive))}
         />
       )}
@@ -128,6 +130,8 @@ export default function MessagesPage() {
       )}
 
       <CreateGroup open={createOpen} onClose={() => setCreateOpen(false)} onCreated={(id) => { setCreateOpen(false); openById(id); }} />
+
+      <SharedStoryModal storyId={sharedStoryId} onClose={() => setSharedStoryId(null)} />
 
       <ProfileView
         uid={viewUid === '__pick__' ? null : viewUid}
