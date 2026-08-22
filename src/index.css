@@ -160,3 +160,11 @@ button, a, input, textarea, select {
   to { opacity: 1; transform: translateY(0); }
 }
 .animate-call-timer-in { animation: call-timer-in 0.3s ease-out; }
+
+/* Stage 2b: incoming call polish */
+
+@keyframes call-accept-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(47, 158, 104, 0.5); }
+  50% { box-shadow: 0 0 0 10px rgba(47, 158, 104, 0); }
+}
+.animate-call-accept-pulse { animation: call-accept-pulse 1.6s ease-out infinite; }

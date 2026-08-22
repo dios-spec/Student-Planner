@@ -24,14 +24,14 @@ export default function IncomingCall({
   return (
     <div className="fixed inset-0 z-[220] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-16 pt-[calc(env(safe-area-inset-top)+4rem)]">
       <div className="flex flex-col items-center gap-4">
-        <div className="animate-pulse">
-          <div className="scale-150">
-            <Avatar
-              name={isGroup ? call.groupName || 'Group' : call.callerName}
-              src={isGroup ? call.groupPhoto : call.callerAvatar}
-              size="lg"
-            />
-          </div>
+        <div className="relative flex scale-150 items-center justify-center">
+          <span className="call-ring" aria-hidden="true" />
+          <span className="call-ring call-ring-delay" aria-hidden="true" />
+          <Avatar
+            name={isGroup ? call.groupName || 'Group' : call.callerName}
+            src={isGroup ? call.groupPhoto : call.callerAvatar}
+            size="lg"
+          />
         </div>
         <div className="mt-4 text-center">
           <h1 className="font-display text-2xl font-bold text-white">
@@ -52,7 +52,7 @@ export default function IncomingCall({
           <span className="text-xs text-white/70">Decline</span>
         </button>
         <button onClick={onAccept} className="flex flex-col items-center gap-2" aria-label="Accept">
-          <span className="flex h-16 w-16 animate-bounce items-center justify-center rounded-full bg-success text-white">
+          <span className="animate-call-accept-pulse flex h-16 w-16 items-center justify-center rounded-full bg-success text-white">
             <Phone size={26} />
           </span>
           <span className="text-xs text-white/70">Accept</span>
