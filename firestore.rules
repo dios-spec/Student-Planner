@@ -131,6 +131,11 @@ service cloud.firestore {
                .hasOnly(['deleted', 'text', 'imageUrl', 'reactions']))
         ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        ||
+        // poll votes/close: anyone signed in may update the poll field only
+        // (mirrors the reactions pattern above -- vote/close logic itself
+        // is enforced by the client-side transaction, same trust level as reactions)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
       );
       allow delete: if false;
     }
@@ -200,7 +205,8 @@ service cloud.firestore {
         // sender may edit/soft-delete own message; anyone in the conv may react.
         allow update: if isSignedIn() && request.auth.uid in convMembers() && (
           resource.data.senderId == request.auth.uid ||
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']) ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
         );
         allow delete: if false;
       }
