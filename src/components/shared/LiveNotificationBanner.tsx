@@ -3,12 +3,14 @@ import { Bell, X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { useNotifications } from '../../hooks/useNotifications';
+import { useActiveConversation } from '../../context/ActiveConversationContext';
 import { markNotificationRead } from '../../firebase/notifications';
 import type { AppNotification } from '../../types';
 
 export default function LiveNotificationBanner() {
   const { user } = useAuth();
-  const { notifications } = useNotifications(user?.uid);
+  const { notifications, loaded } = useNotifications(user?.uid);
+  const { activeConversationId } = useActiveConversation();
   const navigate = useNavigate();
   const seen = useRef<Set<string>>(new Set());
   const primed = useRef(false);
@@ -16,6 +18,8 @@ export default function LiveNotificationBanner() {
   const [current, setCurrent] = useState<AppNotification | null>(null);
 
   useEffect(() => {
+    if (!loaded) return; // wait for the real first snapshot, not the empty pre-mount state
+
     if (!primed.current) {
       notifications.forEach((n) => seen.current.add(n.id));
       primed.current = true;
@@ -24,13 +28,18 @@ export default function LiveNotificationBanner() {
 
     if (document.visibilityState !== 'visible') return;
 
-    const next = notifications.find(
-      (n) => !seen.current.has(n.id) && !n.read && n.type !== 'incomingCall'
-    );
+    const next = notifications.find((n) => {
+      if (seen.current.has(n.id) || n.read || n.type === 'incomingCall') return false;
+      // Don't notify about a conversation the person is already looking at.
+      const openConvId = n.data?.conversationId ?? n.route?.match(/open=([^&]+)/)?.[1];
+      if (openConvId && openConvId === activeConversationId) return false;
+      return true;
+    });
     notifications.forEach((n) => seen.current.add(n.id));
 
     if (!next) return;
     setCurrent(next);
+    void markNotificationRead(next.id); // seen it = read, don't show it again
 
     if (timer.current) clearTimeout(timer.current);
     timer.current = window.setTimeout(() => setCurrent(null), 5000);
@@ -38,12 +47,11 @@ export default function LiveNotificationBanner() {
     return () => {
       if (timer.current) clearTimeout(timer.current);
     };
-  }, [notifications]);
+  }, [notifications, loaded, activeConversationId]);
 
   if (!current) return null;
 
-  async function open() {
-    await markNotificationRead(current!.id);
+  function open() {
     const route = current!.route;
     setCurrent(null);
     if (route) navigate(route);
