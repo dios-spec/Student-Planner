@@ -73,6 +73,20 @@ export interface Reaction {
   users: string[]; // uids who reacted with this emoji
 }
 
+export interface PollOption {
+  id: string;
+  text: string;
+  votes: string[]; // uids
+}
+
+export interface Poll {
+  question: string;
+  options: PollOption[];
+  allowMultiple: boolean;
+  closed: boolean;
+  createdBy: string;
+}
+
 export interface ChatMessage {
   id: string;
   senderId: string;
@@ -90,6 +104,7 @@ export interface ChatMessage {
   reactions?: Record<string, string[]>; // emoji -> uids
   createdAt: Timestamp | null;
   deleted?: boolean;
+  poll?: Poll;
 }
 
 export interface Announcement {
@@ -199,7 +214,7 @@ export interface PinnedMessage {
   pinnedAt: Timestamp | null;
 }
 
-export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel' | 'sharedStory';
+export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel' | 'sharedStory' | 'poll';
 
 export interface DMMessage {
   id: string;
@@ -225,6 +240,7 @@ export interface DMMessage {
   reactions?: Record<string, string[]>;
   createdAt: Timestamp | null;
   deleted?: boolean;
+  poll?: Poll;
 }
 
 export interface BlockEntry {

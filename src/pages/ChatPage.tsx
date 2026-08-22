@@ -12,7 +12,7 @@ import { useMessages } from '../hooks/useMessages';
 import { useActiveStudentCount } from '../hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage } from '../firebase/chat';
+import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage, sendPoll, voteOnPoll, closePoll } from '../firebase/chat';
 import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
 import { pinClassMessage, unpinClassMessage } from '../firebase/pins';
 import { useClassPins } from '../hooks/useClassPins';
@@ -21,6 +21,7 @@ import { useClassTyping } from '../hooks/useClassTyping';
 import { useTypingThrottle } from '../hooks/useTypingThrottle';
 import PinnedBar from '../components/chat/PinnedBar';
 import TypingIndicator from '../components/chat/TypingIndicator';
+import CreatePollSheet from '../components/chat/CreatePollSheet';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
@@ -38,6 +39,7 @@ export default function ChatPage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [viewUid, setViewUid] = useState<string | null>(null);
+  const [pollOpen, setPollOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -112,6 +114,17 @@ export default function ChatPage() {
     if (result === 'full') show('Unpin something first — max 20 pinned messages.');
   }
 
+  async function handleCreatePoll(question: string, options: string[], allowMultiple: boolean) {
+    await sendPoll({
+      senderId: user!.uid,
+      senderName: profile!.displayName,
+      senderAvatar: profile!.avatarUrl,
+      question,
+      options,
+      allowMultiple,
+    });
+  }
+
   return (
     <div className="flex h-[calc(100dvh-64px)] flex-col">
       <TopBar
@@ -151,6 +164,8 @@ export default function ChatPage() {
             onOpenProfile={setViewUid}
             pinned={pinned.some((p) => p.messageId === m.id)}
             onTogglePin={() => handleTogglePin(m)}
+            onVotePoll={(optionId) => voteOnPoll(m.id, optionId, user.uid)}
+            onClosePoll={() => closePoll(m.id)}
           />
         ))}
         <div ref={bottomRef} />
@@ -163,10 +178,13 @@ export default function ChatPage() {
         onSendImage={handleSendImage}
         onSendVoice={handleSendVoice}
         onTyping={notifyTyping}
+        onCreatePoll={() => setPollOpen(true)}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         uploading={uploading}
       />
+
+      <CreatePollSheet open={pollOpen} onClose={() => setPollOpen(false)} onCreate={handleCreatePoll} />
 
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       <ProfileView uid={viewUid} onClose={() => setViewUid(null)} onImageClick={setPreviewUrl} onStartDM={(id) => { setViewUid(null); navigate(`/messages?open=${id}`); }} />

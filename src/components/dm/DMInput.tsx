@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Send, ImagePlus, Smile, Mic, X } from 'lucide-react';
+import { Send, ImagePlus, Smile, Mic, X, BarChart3 } from 'lucide-react';
 import EmojiPicker from '../chat/EmojiPicker';
 import VoiceRecorderBar from './VoiceRecorderBar';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
@@ -11,13 +11,14 @@ interface DMInputProps {
   onSendImage: (file: File) => void;
   onSendVoice: (blob: Blob, duration: number) => void;
   onTyping?: () => void;
+  onCreatePoll?: () => void;
   replyTo: DMMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
 }
 
 export default function DMInput({
-  onSendText, onSendImage, onSendVoice, onTyping, replyTo, onCancelReply, uploading,
+  onSendText, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading,
 }: DMInputProps) {
   const [text, setText] = useState('');
   const [picker, setPicker] = useState(false);
@@ -88,6 +89,12 @@ export default function DMInput({
           className="shrink-0 rounded-full p-2.5 text-ink-soft hover:bg-surface-alt">
           <Smile size={20} />
         </button>
+        {onCreatePoll && (
+          <button onClick={onCreatePoll} aria-label="Create poll"
+            className="shrink-0 rounded-full p-2.5 text-ink-soft hover:bg-surface-alt">
+            <BarChart3 size={20} />
+          </button>
+        )}
         <textarea
           value={text}
           onChange={(e) => {

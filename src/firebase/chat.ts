@@ -13,6 +13,7 @@ import {
   arrayRemove,
   getDocs,
   getDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ChatMessage } from '../types';
@@ -120,4 +121,75 @@ export async function reportMessage(messageId: string, reporterId: string) {
     reporterId,
     createdAt: serverTimestamp(),
   });
+}
+
+export interface NewPoll {
+  senderId: string;
+  senderName: string;
+  senderAvatar?: string;
+  question: string;
+  options: string[];
+  allowMultiple: boolean;
+}
+
+export async function sendPoll(p: NewPoll) {
+  const options = p.options.map((text, i) => ({ id: String(i), text, votes: [] as string[] }));
+  const payload: Record<string, unknown> = {
+    senderId: p.senderId,
+    senderName: p.senderName,
+    senderAvatar: p.senderAvatar,
+    poll: {
+      question: p.question,
+      options,
+      allowMultiple: p.allowMultiple,
+      closed: false,
+      createdBy: p.senderId,
+    },
+    reactions: {},
+    deleted: false,
+    createdAt: serverTimestamp(),
+  };
+  Object.keys(payload).forEach((key) => {
+    if (payload[key] === undefined) delete payload[key];
+  });
+  await addDoc(messagesCol, payload);
+
+  void pushToAll(
+    {
+      type: 'classMessage',
+      title: 'Class Chat',
+      body: p.senderName + ' started a poll: ' + p.question,
+      icon: p.senderAvatar,
+      route: '/chat',
+      data: { senderId: p.senderId },
+    },
+    p.senderId
+  ).catch(() => {});
+}
+
+export async function voteOnPoll(messageId: string, optionId: string, uid: string) {
+  const ref = doc(messagesCol, messageId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as ChatMessage;
+    if (!data.poll || data.poll.closed) return;
+    const already = data.poll.options.find((o) => o.id === optionId)?.votes.includes(uid) ?? false;
+    const options = data.poll.options.map((o) => {
+      let votes = o.votes.slice();
+      if (!data.poll!.allowMultiple) {
+        votes = votes.filter((v) => v !== uid);
+      } else if (o.id === optionId) {
+        votes = votes.filter((v) => v !== uid);
+      }
+      return { ...o, votes };
+    });
+    const target = options.find((o) => o.id === optionId);
+    if (target && !already) target.votes.push(uid);
+    tx.update(ref, { 'poll.options': options });
+  });
+}
+
+export async function closePoll(messageId: string) {
+  await updateDoc(doc(messagesCol, messageId), { 'poll.closed': true });
 }

@@ -5,6 +5,7 @@ import EmojiPicker from '../chat/EmojiPicker';
 import ReactionRow from '../chat/ReactionRow';
 import VoicePlayer from './VoicePlayer';
 import SharedPreview from './SharedPreview';
+import PollCard from '../chat/PollCard';
 import { relativeTime } from '../../utils/date';
 import type { DMMessage } from '../../types';
 
@@ -22,12 +23,14 @@ interface DMBubbleProps {
   pinned: boolean;
   onTogglePin: () => void;
   receiptLabel?: string;
+  onVotePoll: (optionId: string) => void;
+  onClosePoll: () => void;
 }
 
 export default function DMBubble({
   message, isMine, myUid, isGroup,
   onReact, onReply, onDelete, onImageClick, onOpenShared, onOpenProfile,
-  pinned, onTogglePin, receiptLabel,
+  pinned, onTogglePin, receiptLabel, onVotePoll, onClosePoll,
 }: DMBubbleProps) {
   const [picker, setPicker] = useState(false);
   const created = message.createdAt?.toDate ? message.createdAt.toDate() : new Date();
@@ -79,6 +82,9 @@ export default function DMBubble({
           )}
           {(message.kind === 'sharedPost' || message.kind === 'sharedReel' || message.kind === 'sharedStory') && message.shared && (
             <SharedPreview shared={message.shared} mine={isMine} onOpen={() => onOpenShared(message.shared!)} />
+          )}
+          {message.kind === 'poll' && message.poll && (
+            <PollCard poll={message.poll} myUid={myUid} mine={isMine} onVote={onVotePoll} onClose={message.poll.createdBy === myUid ? onClosePoll : undefined} />
           )}
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         </div>

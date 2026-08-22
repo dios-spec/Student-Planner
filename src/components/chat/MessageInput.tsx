@@ -1,5 +1,5 @@
 import { useRef, useState } from 'react';
-import { Send, ImagePlus, Smile, Mic, X } from 'lucide-react';
+import { Send, ImagePlus, Smile, Mic, X, BarChart3 } from 'lucide-react';
 import EmojiPicker from './EmojiPicker';
 import VoiceRecorderBar from '../dm/VoiceRecorderBar';
 import { useVoiceRecorder } from '../../hooks/useVoiceRecorder';
@@ -11,12 +11,13 @@ interface MessageInputProps {
   onSendImage: (file: File) => void;
   onSendVoice: (blob: Blob, duration: number) => void;
   onTyping?: () => void;
+  onCreatePoll?: () => void;
   replyTo: ChatMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
 }
 
-export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, replyTo, onCancelReply, uploading }: MessageInputProps) {
+export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading }: MessageInputProps) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
@@ -106,6 +107,15 @@ export default function MessageInput({ onSend, onSendImage, onSendVoice, onTypin
         >
           <Smile size={20} />
         </button>
+        {onCreatePoll && (
+          <button
+            onClick={onCreatePoll}
+            aria-label="Create poll"
+            className="shrink-0 rounded-full p-2.5 text-ink-soft hover:bg-surface-alt"
+          >
+            <BarChart3 size={20} />
+          </button>
+        )}
         <textarea
           value={text}
           onChange={(e) => {

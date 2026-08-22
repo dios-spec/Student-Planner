@@ -5,6 +5,7 @@ import Avatar from '../shared/Avatar';
 import EmojiPicker from './EmojiPicker';
 import ReactionRow from './ReactionRow';
 import VoicePlayer from '../dm/VoicePlayer';
+import PollCard from './PollCard';
 import { relativeTime } from '../../utils/date';
 
 interface MessageBubbleProps {
@@ -19,6 +20,8 @@ interface MessageBubbleProps {
   onOpenProfile: (uid: string) => void;
   pinned: boolean;
   onTogglePin: () => void;
+  onVotePoll: (optionId: string) => void;
+  onClosePoll: () => void;
 }
 
 export default function MessageBubble({
@@ -33,6 +36,8 @@ export default function MessageBubble({
   onOpenProfile,
   pinned,
   onTogglePin,
+  onVotePoll,
+  onClosePoll,
 }: MessageBubbleProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -85,6 +90,9 @@ export default function MessageBubble({
           )}
           {message.audioUrl && (
             <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />
+          )}
+          {message.poll && (
+            <PollCard poll={message.poll} myUid={myUid} mine={isMine} onVote={onVotePoll} onClose={message.poll.createdBy === myUid ? onClosePoll : undefined} />
           )}
           {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
         </div>

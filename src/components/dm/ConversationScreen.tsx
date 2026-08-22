@@ -11,7 +11,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCall } from '../../context/CallContext';
 import { useActiveConversation } from '../../context/ActiveConversationContext';
-import { sendDM, toggleDMReaction, deleteDMMessage } from '../../firebase/dm';
+import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll } from '../../firebase/dm';
 import { markConversationRead } from '../../firebase/conversations';
 import { pinDMMessage, unpinDMMessage } from '../../firebase/pins';
 import { setConversationTyping, typingNamesFrom } from '../../firebase/typing';
@@ -21,6 +21,7 @@ import { watchUserProfile } from '../../firebase/users';
 import PinnedBar from '../chat/PinnedBar';
 import TypingIndicator from '../chat/TypingIndicator';
 import PresenceLabel from '../shared/PresenceLabel';
+import CreatePollSheet from '../chat/CreatePollSheet';
 import type { Conversation, DMMessage, StudentProfile } from '../../types';
 
 interface ConversationScreenProps {
@@ -52,6 +53,7 @@ export default function ConversationScreen({
   const [replyTo, setReplyTo] = useState<DMMessage['replyTo']>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [pollOpen, setPollOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isGroup = conversation.type === 'group';
@@ -156,6 +158,14 @@ export default function ConversationScreen({
     if (result === 'full') show('Unpin something first — max 20 pinned messages.');
   }
 
+  async function handleCreatePoll(question: string, options: string[], allowMultiple: boolean) {
+    const opts = options.map((text, i) => ({ id: String(i), text, votes: [] as string[] }));
+    await send({
+      kind: 'poll',
+      poll: { question, options: opts, allowMultiple, closed: false, createdBy: user!.uid },
+    });
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-paper">
       <header className="flex items-center gap-2 border-b border-line bg-surface px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)]">
@@ -219,6 +229,8 @@ export default function ConversationScreen({
             pinned={(conversation.pinned || []).some((p) => p.messageId === m.id)}
             onTogglePin={() => handleTogglePin(m)}
             receiptLabel={m.senderId === user.uid ? receiptLabelFor(m) : undefined}
+            onVotePoll={(optionId) => voteOnDMPoll(conversation.id, m.id, optionId, user.uid)}
+            onClosePoll={() => closeDMPoll(conversation.id, m.id)}
           />
         ))}
         <div ref={bottomRef} />
@@ -236,11 +248,14 @@ export default function ConversationScreen({
           onSendImage={handleImage}
           onSendVoice={handleVoice}
           onTyping={notifyTyping}
+          onCreatePoll={() => setPollOpen(true)}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           uploading={uploading}
         />
       )}
+
+      <CreatePollSheet open={pollOpen} onClose={() => setPollOpen(false)} onCreate={handleCreatePoll} />
 
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
     </div>

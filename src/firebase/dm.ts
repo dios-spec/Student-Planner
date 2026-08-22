@@ -12,6 +12,7 @@ import {
   arrayRemove,
   increment,
   writeBatch,
+  runTransaction,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { DMMessage, Conversation } from '../types';
@@ -40,6 +41,7 @@ export interface SendArgs {
   audioUrl?: string;
   audioDuration?: number;
   shared?: DMMessage['shared'];
+  poll?: DMMessage['poll'];
   replyTo?: DMMessage['replyTo'];
 }
 
@@ -51,6 +53,7 @@ function previewFor(a: SendArgs): string {
     case 'sharedPost': return '📮 Shared a post';
     case 'sharedReel': return '🎬 Shared a reel';
     case 'sharedStory': return '✨ Shared a story';
+    case 'poll': return '📊 Poll: ' + (a.poll ? a.poll.question : '');
     default: return '';
   }
 }
@@ -71,6 +74,7 @@ export async function sendDM(a: SendArgs) {
     audioUrl: a.audioUrl,
     audioDuration: a.audioDuration,
     shared: a.shared,
+    poll: a.poll,
     replyTo: a.replyTo ?? null,
     reactions: {},
     deleted: false,
@@ -171,4 +175,31 @@ export async function deleteDMMessage(conversationId: string, messageId: string)
     imageUrl: '',
     audioUrl: '',
   });
+}
+
+export async function voteOnDMPoll(conversationId: string, messageId: string, optionId: string, uid: string) {
+  const ref = doc(msgCol(conversationId), messageId);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const data = snap.data() as DMMessage;
+    if (!data.poll || data.poll.closed) return;
+    const already = data.poll.options.find((o) => o.id === optionId)?.votes.includes(uid) ?? false;
+    const options = data.poll.options.map((o) => {
+      let votes = o.votes.slice();
+      if (!data.poll!.allowMultiple) {
+        votes = votes.filter((v) => v !== uid);
+      } else if (o.id === optionId) {
+        votes = votes.filter((v) => v !== uid);
+      }
+      return { ...o, votes };
+    });
+    const target = options.find((o) => o.id === optionId);
+    if (target && !already) target.votes.push(uid);
+    tx.update(ref, { 'poll.options': options });
+  });
+}
+
+export async function closeDMPoll(conversationId: string, messageId: string) {
+  await updateDoc(doc(msgCol(conversationId), messageId), { 'poll.closed': true });
 }
