@@ -45,13 +45,16 @@ export default function ShareSheet({
 
   async function shareTo(conversation: Conversation, key: string) {
     if (!user || !profile || sent.has(key)) return;
+    const cleanShared = Object.fromEntries(
+      Object.entries(content!).filter(([, v]) => v !== undefined)
+    ) as ShareContent;
     await sendDM({
       conversation,
       senderId: user.uid,
       senderName: profile.displayName,
       senderAvatar: profile.avatarUrl,
       kind: content!.kind === 'reel' ? 'sharedReel' : 'sharedPost',
-      shared: content!,
+      shared: cleanShared,
     });
     setSent((s) => new Set(s).add(key));
     show('Shared!');
