@@ -119,3 +119,44 @@ button, a, input, textarea, select {
 
 @keyframes nav-dot-in { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
 .animate-nav-dot { animation: nav-dot-in 0.2s ease-out; }
+
+/* Stage 2b: call UI animations */
+
+@keyframes call-pulse-ring {
+  0% { transform: scale(1); opacity: 0.5; }
+  100% { transform: scale(1.6); opacity: 0; }
+}
+.call-ring {
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  border: 2px solid rgba(255, 255, 255, 0.5);
+  animation: call-pulse-ring 1.8s ease-out infinite;
+}
+.call-ring-delay { animation-delay: 0.6s; }
+
+@keyframes call-avatar-pulse {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.04); }
+}
+.animate-call-avatar-pulse { animation: call-avatar-pulse 2s ease-in-out infinite; }
+
+@keyframes call-dot-bounce {
+  0%, 80%, 100% { opacity: 0.3; transform: translateY(0); }
+  40% { opacity: 1; transform: translateY(-3px); }
+}
+.call-dot { animation: call-dot-bounce 1.4s ease-in-out infinite; }
+.call-dot:nth-child(2) { animation-delay: 0.15s; }
+.call-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes call-participant-in {
+  from { opacity: 0; transform: scale(0.8) translateY(6px); }
+  to { opacity: 1; transform: scale(1) translateY(0); }
+}
+.animate-call-participant-in { animation: call-participant-in 0.25s ease-out; }
+
+@keyframes call-timer-in {
+  from { opacity: 0; transform: translateY(-4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-call-timer-in { animation: call-timer-in 0.3s ease-out; }

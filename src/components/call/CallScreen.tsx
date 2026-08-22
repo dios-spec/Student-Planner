@@ -37,12 +37,7 @@ export default function CallScreen({
   const joinedParticipants = Object.entries(call.participants).filter(([, p]) => p.joined);
   const title = isGroup ? call.groupName || 'Group call' : call.participants[call.memberIds.find((m) => m !== user?.uid) || '']?.name || call.callerName;
   const photo = isGroup ? call.groupPhoto : call.participants[call.memberIds.find((m) => m !== user?.uid) || '']?.avatar;
-
-  const statusLabel =
-    call.status === 'ringing' ? 'Calling...'
-    : call.status === 'connecting' ? 'Connecting...'
-    : connected ? fmt(elapsed)
-    : call.status;
+  const ringingOrConnecting = call.status === 'ringing' || call.status === 'connecting';
 
   async function hangUp() {
     if (user) await leaveCall(call.id, user.uid, isGroup);
@@ -52,20 +47,39 @@ export default function CallScreen({
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
       <div className="flex flex-col items-center gap-4">
-        {isGroup ? (
-          <Avatar name={title} src={photo} size="lg" />
-        ) : (
-          <div className="scale-150"><Avatar name={title} src={photo} size="lg" /></div>
-        )}
+        <div className={`relative flex items-center justify-center ${isGroup ? '' : 'scale-150'}`}>
+          {!connected && (
+            <>
+              <span className="call-ring" aria-hidden="true" />
+              <span className="call-ring call-ring-delay" aria-hidden="true" />
+            </>
+          )}
+          <div className={call.status === 'ringing' ? 'animate-call-avatar-pulse' : ''}>
+            <Avatar name={title} src={photo} size="lg" />
+          </div>
+        </div>
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold text-white">{title}</h1>
-          <p className="mt-1 text-sm text-white/60">{statusLabel}</p>
+          {connected ? (
+            <p key="timer" className="animate-call-timer-in mt-1 text-sm text-white/60">{fmt(elapsed)}</p>
+          ) : (
+            <p className="mt-1 flex items-center justify-center gap-1 text-sm text-white/60">
+              <span>{call.status === 'ringing' ? 'Calling' : call.status === 'connecting' ? 'Connecting' : call.status}</span>
+              {ringingOrConnecting && (
+                <span className="flex gap-0.5">
+                  <span className="call-dot h-1 w-1 rounded-full bg-white/60" />
+                  <span className="call-dot h-1 w-1 rounded-full bg-white/60" />
+                  <span className="call-dot h-1 w-1 rounded-full bg-white/60" />
+                </span>
+              )}
+            </p>
+          )}
         </div>
 
         {isGroup && (
           <div className="mt-4 flex flex-wrap justify-center gap-3">
             {joinedParticipants.map(([id, p]) => (
-              <div key={id} className="flex flex-col items-center gap-1">
+              <div key={id} className="animate-call-participant-in flex flex-col items-center gap-1">
                 <div className="relative">
                   <Avatar name={p.name} src={p.avatar} size="md" />
                   {p.muted && (
@@ -84,7 +98,7 @@ export default function CallScreen({
       <div className="flex items-center gap-5">
         <button
           onClick={toggleMute}
-          className={`flex h-14 w-14 items-center justify-center rounded-full ${muted ? 'bg-white text-ink' : 'bg-white/15 text-white'}`}
+          className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors duration-200 ${muted ? 'bg-white text-ink' : 'bg-white/15 text-white'}`}
           aria-label={muted ? 'Unmute' : 'Mute'}
         >
           {muted ? <MicOff size={22} /> : <Mic size={22} />}
