@@ -1,4 +1,4 @@
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, serverTimestamp } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, onSnapshot, Timestamp } from 'firebase/firestore';
 import { db } from './config';
 import type { Conversation, PinnedMessage } from '../types';
 
@@ -24,7 +24,7 @@ export async function pinClassMessage(entry: Omit<PinnedMessage, 'pinnedAt'>): P
   const current: PinnedMessage[] = snap.exists() ? (snap.data().pinned as PinnedMessage[]) || [] : [];
   if (current.some((p) => p.messageId === entry.messageId)) return 'ok';
   if (current.length >= MAX_PINNED) return 'full';
-  const next = [...current, stripUndefined({ ...entry, pinnedAt: serverTimestamp() })];
+  const next = [...current, stripUndefined({ ...entry, pinnedAt: Timestamp.now() })];
   await setDoc(classPinsRef, { pinned: next }, { merge: true });
   return 'ok';
 }
@@ -45,7 +45,7 @@ export async function pinDMMessage(
   const current = conversation.pinned || [];
   if (current.some((p) => p.messageId === entry.messageId)) return 'ok';
   if (current.length >= MAX_PINNED) return 'full';
-  const next = [...current, stripUndefined({ ...entry, pinnedAt: serverTimestamp() })];
+  const next = [...current, stripUndefined({ ...entry, pinnedAt: Timestamp.now() })];
   await updateDoc(doc(db, 'conversations', conversation.id), { pinned: next });
   return 'ok';
 }
