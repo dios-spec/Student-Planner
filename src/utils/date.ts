@@ -1,4 +1,5 @@
 import { format, addDays, isToday, isTomorrow, differenceInCalendarDays, parseISO } from 'date-fns';
+import type { TimetableDayKey } from '../types';
 
 export const DATE_FMT = 'yyyy-MM-dd';
 
@@ -50,4 +51,9 @@ export function relativeTime(date: Date): string {
   const days = Math.round(hrs / 24);
   if (days < 7) return `${days}d ago`;
   return format(date, 'd MMM');
+}
+
+export function todayDayKey(): TimetableDayKey | null {
+  const map: Record<number, TimetableDayKey> = { 1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat' };
+  return map[new Date().getDay()] ?? null;
 }

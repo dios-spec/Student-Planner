@@ -310,3 +310,29 @@ export interface CallDoc {
   createdAt: Timestamp | null;
   endedAt?: Timestamp | null;
 }
+
+export interface TimetablePeriod {
+  period: number;
+  subject: string;
+  teacher?: string;
+  room?: string;
+}
+
+export type TimetableDayKey = 'mon' | 'tue' | 'wed' | 'thu' | 'fri' | 'sat';
+
+export interface Timetable {
+  classId: string;
+  days: Record<TimetableDayKey, TimetablePeriod[]>;
+  updatedBy?: string;
+  updatedAt: Timestamp | null;
+}
+
+export interface Reminder {
+  id: string;
+  userId: string;
+  itemId: string;
+  itemTitle: string;
+  remindAt: Timestamp | null;
+  sent: boolean;
+  createdAt: Timestamp | null;
+}
