@@ -16,6 +16,7 @@ interface StoryViewerProps {
 }
 
 const STORY_MS = 5000;
+const HOLD_MS = 180;
 
 export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile }: StoryViewerProps) {
   const { user } = useAuth();
@@ -24,32 +25,56 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
   const [progress, setProgress] = useState(0);
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const [shareContent, setShareContent] = useState<ShareContent | null>(null);
+  const [holding, setHolding] = useState(false);
   const timerRef = useRef<number | null>(null);
+  const elapsedRef = useRef(0);
+  const lastFrameRef = useRef<number | null>(null);
+  const holdTimerRef = useRef<number | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
 
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
+
+  // Paused whenever the person is holding to view, or a sheet (comments/share)
+  // is open on top of the story -- either way, it must not advance underneath them.
+  const paused = holding || commentsFor !== null || !!shareContent;
+  const pausedRef = useRef(paused);
+  pausedRef.current = paused;
 
   useEffect(() => {
     if (!story || !user) return;
     markStorySeen(story.id, user.uid);
     setProgress(0);
-    const start = Date.now();
-    const tick = () => {
-      const elapsed = Date.now() - start;
-      const pct = Math.min(100, (elapsed / STORY_MS) * 100);
+    elapsedRef.current = 0;
+    lastFrameRef.current = null;
+
+    function tick(now: number) {
+      if (lastFrameRef.current == null) lastFrameRef.current = now;
+      if (!pausedRef.current) {
+        elapsedRef.current += now - lastFrameRef.current;
+      }
+      lastFrameRef.current = now;
+      const pct = Math.min(100, (elapsedRef.current / STORY_MS) * 100);
       setProgress(pct);
       if (pct >= 100) {
         advance();
       } else {
         timerRef.current = requestAnimationFrame(tick);
       }
-    };
+    }
     timerRef.current = requestAnimationFrame(tick);
     return () => {
       if (timerRef.current) cancelAnimationFrame(timerRef.current);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [groupIdx, storyIdx]);
+
+  useEffect(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    if (paused) v.pause();
+    else v.play().catch(() => {});
+  }, [paused]);
 
   function advance() {
     if (!group) return;
@@ -72,14 +97,45 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
     }
   }
 
+  function startPress() {
+    holdTimerRef.current = window.setTimeout(() => setHolding(true), HOLD_MS);
+  }
+
+  function endPress(side: 'left' | 'right') {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    if (holding) {
+      setHolding(false);
+      return; // was a hold-to-pause, not a navigation tap
+    }
+    if (side === 'left') back();
+    else advance();
+  }
+
+  function cancelPress() {
+    if (holdTimerRef.current) {
+      clearTimeout(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+    setHolding(false);
+  }
+
   if (!group || !story) return null;
   const isMine = story.authorId === user?.uid;
   const liked = story.likes?.includes(user?.uid || '') ?? false;
   const createdDate = story.createdAt?.toDate ? story.createdAt.toDate() : new Date();
+  const chromeHidden = holding;
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
-      <div className="flex gap-1 px-3 pt-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
+      <div
+        className={
+          "flex gap-1 px-3 pt-3 pt-[calc(env(safe-area-inset-top)+0.75rem)] transition-opacity duration-150 " +
+          (chromeHidden ? "pointer-events-none opacity-0" : "opacity-100")
+        }
+      >
         {group.stories.map((s, i) => (
           <div key={s.id} className="h-0.5 flex-1 overflow-hidden rounded-full bg-white/30">
             <div
@@ -90,7 +146,12 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
         ))}
       </div>
 
-      <div className="flex items-center gap-2 px-4 py-3">
+      <div
+        className={
+          "flex items-center gap-2 px-4 py-3 transition-opacity duration-150 " +
+          (chromeHidden ? "pointer-events-none opacity-0" : "opacity-100")
+        }
+      >
         <button onClick={() => onOpenProfile?.(group.authorId)} className="flex items-center gap-2">
           <Avatar name={group.authorName} src={group.authorAvatar} size="sm" />
           <span className="text-sm font-semibold text-white">{group.authorName}</span>
@@ -117,15 +178,40 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
 
       <div className="relative flex flex-1 items-center justify-center overflow-hidden">
         {story.mediaType === 'video' ? (
-          <video src={story.imageUrl} autoPlay playsInline className="max-h-full max-w-full object-contain" />
+          <video
+            ref={videoRef}
+            src={story.imageUrl}
+            autoPlay
+            playsInline
+            className="max-h-full max-w-full object-contain"
+          />
         ) : (
           <img src={story.imageUrl} alt="Story" className="max-h-full max-w-full object-contain" />
         )}
-        <button className="absolute inset-y-0 left-0 w-1/3" onClick={back} aria-label="Previous" />
-        <button className="absolute inset-y-0 right-0 w-2/3" onClick={advance} aria-label="Next" />
+        <button
+          className="absolute inset-y-0 left-0 w-1/3"
+          onPointerDown={startPress}
+          onPointerUp={() => endPress('left')}
+          onPointerLeave={cancelPress}
+          onPointerCancel={cancelPress}
+          aria-label="Previous / hold to pause"
+        />
+        <button
+          className="absolute inset-y-0 right-0 w-2/3"
+          onPointerDown={startPress}
+          onPointerUp={() => endPress('right')}
+          onPointerLeave={cancelPress}
+          onPointerCancel={cancelPress}
+          aria-label="Next / hold to pause"
+        />
       </div>
 
-      <div className="flex items-center gap-5 px-4 py-3.5">
+      <div
+        className={
+          "flex items-center gap-5 px-4 py-3.5 transition-opacity duration-150 " +
+          (chromeHidden ? "pointer-events-none opacity-0" : "opacity-100")
+        }
+      >
         <button
           onClick={() => user && toggleStoryLike(story.id, user.uid, liked)}
           className="flex items-center gap-1.5 text-white"
