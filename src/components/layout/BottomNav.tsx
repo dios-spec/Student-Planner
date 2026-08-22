@@ -33,12 +33,15 @@ export default function BottomNav() {
           >
             {({ isActive }) => (
               <>
-                <div className="relative">
+                <div className={`relative transition-transform duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
                   <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
                   {dm && totalUnread > 0 && (
                     <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[9px] font-bold text-white">
                       {totalUnread > 9 ? '9+' : totalUnread}
                     </span>
+                  )}
+                  {isActive && (
+                    <span className="animate-nav-dot absolute -bottom-1.5 left-1/2 h-1 w-1 -translate-x-1/2 rounded-full bg-accent" />
                   )}
                 </div>
                 {label}

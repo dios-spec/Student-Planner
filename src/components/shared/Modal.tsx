@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect } from 'react';
+import { type ReactNode, useEffect, useState } from 'react';
 import { createPortal } from 'react-dom';
 import { X } from 'lucide-react';
 
@@ -12,6 +12,25 @@ interface ModalProps {
 
 /** A bottom sheet on mobile, a centered dialog on larger screens. */
 export default function Modal({ open, onClose, title, children, fullHeight }: ModalProps) {
+  const [rendered, setRendered] = useState(open);
+  const [closing, setClosing] = useState(false);
+
+  useEffect(() => {
+    if (open) {
+      setRendered(true);
+      setClosing(false);
+      return;
+    }
+    if (rendered) {
+      setClosing(true);
+      const t = window.setTimeout(() => {
+        setRendered(false);
+        setClosing(false);
+      }, 180);
+      return () => window.clearTimeout(t);
+    }
+  }, [open, rendered]);
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose();
@@ -23,15 +42,18 @@ export default function Modal({ open, onClose, title, children, fullHeight }: Mo
     };
   }, [open, onClose]);
 
-  if (!open) return null;
+  if (!rendered) return null;
 
   return createPortal(
     <div className="fixed inset-0 z-[150] flex items-end justify-center sm:items-center" role="dialog" aria-modal="true">
-      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div
+        className={`absolute inset-0 bg-black/40 ${closing ? 'animate-modal-backdrop-out' : 'animate-modal-backdrop-in'}`}
+        onClick={onClose}
+      />
       <div
         className={`relative z-10 w-full max-w-lg rounded-t-3xl bg-surface shadow-2xl sm:rounded-3xl ${
           fullHeight ? 'h-[85vh]' : 'max-h-[85vh]'
-        } flex flex-col`}
+        } flex flex-col ${closing ? 'animate-modal-sheet-out' : 'animate-modal-sheet-in'}`}
       >
         <div className="flex items-center justify-between border-b border-line px-5 py-4">
           <h2 className="font-display text-lg font-semibold text-ink">{title}</h2>

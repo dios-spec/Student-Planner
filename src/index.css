@@ -90,3 +90,32 @@
 button, a, input, textarea, select {
   touch-action: manipulation;
 }
+
+/* Stage 2a: global motion foundation */
+
+@layer base {
+  button:not(:disabled) {
+    transition: transform 0.15s ease;
+  }
+  button:not(:disabled):active {
+    transform: scale(0.96);
+  }
+}
+
+@keyframes modal-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes modal-backdrop-out { from { opacity: 1; } to { opacity: 0; } }
+@keyframes modal-sheet-in {
+  from { opacity: 0; transform: translateY(24px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+@keyframes modal-sheet-out {
+  from { opacity: 1; transform: translateY(0) scale(1); }
+  to { opacity: 0; transform: translateY(24px) scale(0.98); }
+}
+.animate-modal-backdrop-in { animation: modal-backdrop-in 0.2s ease-out; }
+.animate-modal-backdrop-out { animation: modal-backdrop-out 0.18s ease-in forwards; }
+.animate-modal-sheet-in { animation: modal-sheet-in 0.22s cubic-bezier(0.16, 1, 0.3, 1); }
+.animate-modal-sheet-out { animation: modal-sheet-out 0.18s ease-in forwards; }
+
+@keyframes nav-dot-in { from { opacity: 0; transform: scale(0.5); } to { opacity: 1; transform: scale(1); } }
+.animate-nav-dot { animation: nav-dot-in 0.2s ease-out; }
