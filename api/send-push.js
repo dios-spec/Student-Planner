@@ -1,32 +1,7 @@
-import { cert, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-
-function adminApp() {
-  if (getApps().length) return getApps()[0];
-
-  const projectId = process.env.FIREBASE_ADMIN_PROJECT_ID;
-  const clientEmail = process.env.FIREBASE_ADMIN_CLIENT_EMAIL;
-  const privateKey = process.env.FIREBASE_ADMIN_PRIVATE_KEY?.replace(/\\n/g, '\n');
-
-  if (!projectId || !clientEmail || !privateKey) {
-    throw new Error('Missing Firebase Admin environment variables');
-  }
-
-  return initializeApp({
-    credential: cert({ projectId, clientEmail, privateKey }),
-    projectId,
-  });
-}
-
-function asStrings(obj = {}) {
-  const out = {};
-  for (const [k, v] of Object.entries(obj)) {
-    if (v !== undefined && v !== null) out[k] = String(v);
-  }
-  return out;
-}
+import { adminApp, asStrings } from './_lib/firebaseAdmin.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');

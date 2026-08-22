@@ -279,6 +279,17 @@ service cloud.firestore {
       allow write: if isSignedIn() && validClass(classId);
     }
 
+    // ---- Reminders: fully private to the owner; only the server (Admin SDK) marks them sent ----
+    match /reminders/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn()
+        && request.resource.data.userId == request.auth.uid
+        && request.resource.data.sent == false
+        && strLen(request.resource.data.get('itemTitle', ''), 200);
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+    }
+
     // ---- Reports: write-only from students, readable only via the console/admin ----
     match /reports/{id} {
       allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;

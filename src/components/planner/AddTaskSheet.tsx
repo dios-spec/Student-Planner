@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Bell } from 'lucide-react';
 import Modal from '../shared/Modal';
+import RemindMeSheet from './RemindMeSheet';
 import { DEFAULT_SUBJECTS } from '../../data/subjects';
 import { CATEGORY_ORDER, CATEGORY_META } from '../../data/categories';
 import type { PlannerCategory, PlannerItem } from '../../types';
@@ -30,6 +32,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
   const [portion, setPortion] = useState('');
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
+  const [remindOpen, setRemindOpen] = useState(false);
 
   useEffect(() => {
     if (!open) return;
@@ -92,6 +95,15 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
   return (
     <Modal open={open} onClose={onClose} title={editingItem ? 'Edit Task' : 'Add Task'}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        {editingItem && (
+          <button
+            type="button"
+            onClick={() => setRemindOpen(true)}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-line px-4 py-2.5 text-sm font-medium text-accent"
+          >
+            <Bell size={16} /> Remind me about this
+          </button>
+        )}
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Subject</label>
           <div className="flex flex-wrap gap-2">
@@ -214,6 +226,8 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
           {saving ? 'Saving…' : editingItem ? 'Save Changes' : 'Add'}
         </button>
       </form>
+
+      <RemindMeSheet open={remindOpen} onClose={() => setRemindOpen(false)} item={editingItem || null} />
     </Modal>
   );
 }
