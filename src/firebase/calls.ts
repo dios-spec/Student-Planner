@@ -229,7 +229,20 @@ export async function setMuted(callId: string, uid: string, muted: boolean) {
 }
 
 /** Leave a call. If no one is left joined, end it. */
-export async function leaveCall(callId: string, uid: string) {
+export async function leaveCall(callId: string, uid: string, isGroup: boolean) {
+  if (!isGroup) {
+    // A DM only ever has two participants -- if either one leaves, the call
+    // is over for both. The "someone else still joined, keep it alive" logic
+    // below only makes sense for groups of 3+; applying it to DMs was the
+    // exact bug where the other side's call screen never closed.
+    await updateDoc(doc(callsCol, callId), {
+      status: 'ended',
+      endedAt: serverTimestamp(),
+      [`participants.${uid}.joined`]: false,
+    });
+    return;
+  }
+
   const snap = await getDoc(doc(callsCol, callId));
   if (!snap.exists()) return;
   const data = snap.data() as CallDoc;

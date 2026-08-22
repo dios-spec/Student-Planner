@@ -45,7 +45,7 @@ export default function CallScreen({
     : call.status;
 
   async function hangUp() {
-    if (user) await leaveCall(call.id, user.uid);
+    if (user) await leaveCall(call.id, user.uid, isGroup);
     onClose();
   }
 
