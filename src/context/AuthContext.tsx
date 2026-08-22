@@ -2,6 +2,8 @@ import { createContext, useContext, useEffect, useState, type ReactNode } from '
 import type { User } from 'firebase/auth';
 import { ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen } from '../firebase/users';
+
+const HEARTBEAT_MS = 60000;
 import type { StudentProfile } from '../types';
 
 interface AuthContextValue {
@@ -34,6 +36,27 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setProfile(p);
           setLoading(false);
         });
+
+        // Keep lastSeen fresh so presence (online/last-seen) reflects reality,
+        // not just the moment the tab first loaded. Only while visible --
+        // no point burning writes on a backgrounded/closed tab.
+        const heartbeat = window.setInterval(() => {
+          if (document.visibilityState === 'visible') touchLastSeen(fbUser.uid);
+        }, HEARTBEAT_MS);
+        const onVisible = () => {
+          if (document.visibilityState === 'visible') touchLastSeen(fbUser.uid);
+        };
+        document.addEventListener('visibilitychange', onVisible);
+
+        const cleanupHeartbeat = () => {
+          window.clearInterval(heartbeat);
+          document.removeEventListener('visibilitychange', onVisible);
+        };
+        const prevUnsub = unsubProfile;
+        unsubProfile = () => {
+          prevUnsub?.();
+          cleanupHeartbeat();
+        };
       })
       .catch((err) => {
         console.error('Auth failed', err);

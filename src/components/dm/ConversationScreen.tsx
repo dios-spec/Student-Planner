@@ -17,9 +17,11 @@ import { pinDMMessage, unpinDMMessage } from '../../firebase/pins';
 import { setConversationTyping, typingNamesFrom } from '../../firebase/typing';
 import { useTypingThrottle } from '../../hooks/useTypingThrottle';
 import { uploadDMImage, uploadVoiceClip } from '../../firebase/storage';
+import { watchUserProfile } from '../../firebase/users';
 import PinnedBar from '../chat/PinnedBar';
 import TypingIndicator from '../chat/TypingIndicator';
-import type { Conversation, DMMessage } from '../../types';
+import PresenceLabel from '../shared/PresenceLabel';
+import type { Conversation, DMMessage, StudentProfile } from '../../types';
 
 interface ConversationScreenProps {
   conversation: Conversation;
@@ -57,6 +59,12 @@ export default function ConversationScreen({
   const other = conversation.members[otherId];
   const title = isGroup ? conversation.name || 'Group' : other?.name || 'Chat';
   const photo = isGroup ? conversation.photoUrl : other?.avatar;
+  const [otherProfile, setOtherProfile] = useState<StudentProfile | null>(null);
+
+  useEffect(() => {
+    if (isGroup || !otherId) { setOtherProfile(null); return; }
+    return watchUserProfile(otherId, setOtherProfile);
+  }, [isGroup, otherId]);
 
   useEffect(() => {
     if (user) markConversationRead(conversation.id, user.uid);
@@ -139,7 +147,11 @@ export default function ConversationScreen({
           <Avatar name={title} src={photo} size="sm" />
           <div className="min-w-0 text-left">
             <p className="truncate text-sm font-semibold text-ink">{title}</p>
-            {isGroup && <p className="text-xs text-ink-soft">{conversation.memberIds.length} members</p>}
+            {isGroup ? (
+              <p className="text-xs text-ink-soft">{conversation.memberIds.length} members</p>
+            ) : (
+              <PresenceLabel profile={otherProfile} />
+            )}
           </div>
         </button>
         {!blocked && (

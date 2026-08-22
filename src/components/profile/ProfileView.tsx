@@ -13,6 +13,7 @@ import { useBlocks } from '../../hooks/useBlocks';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import MoodBadge from './MoodBadge';
+import PresenceLabel from '../shared/PresenceLabel';
 import { CLASS_COLORS, isClassId } from '../../data/classes';
 import type { StudentProfile } from '../../types';
 
@@ -76,6 +77,7 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
                 )}
               </div>
               {profile.moodLabel && <p className="text-xs text-ink-soft">{profile.moodEmoji} {profile.moodLabel}</p>}
+              {!isMe && <PresenceLabel profile={profile} className="mt-0.5 justify-center" />}
             </div>
             {profile.bio && <p className="text-sm italic text-ink-soft">"{profile.bio}"</p>}
             <p className="text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
