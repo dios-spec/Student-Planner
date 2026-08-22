@@ -273,6 +273,12 @@ service cloud.firestore {
         && (!('typing' in request.resource.data) || request.resource.data.typing is map);
     }
 
+    // ---- Timetable: one shared doc per class, editable by any signed-in student ----
+    match /timetable/{classId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && validClass(classId);
+    }
+
     // ---- Reports: write-only from students, readable only via the console/admin ----
     match /reports/{id} {
       allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;

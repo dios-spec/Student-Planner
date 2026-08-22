@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus, Search, CalendarClock } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import DateHeader from '../components/planner/DateHeader';
 import TodaySummary from '../components/planner/TodaySummary';
@@ -22,6 +23,7 @@ import { CATEGORY_ORDER } from '../data/categories';
 import type { PlannerItem } from '../types';
 
 export default function PlannerPage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { show } = useToast();
   const { activeClass } = useActiveClass();
@@ -67,13 +69,22 @@ export default function PlannerPage() {
       <TopBar
         title="Planner"
         right={
-          <button
-            onClick={() => setSearchOpen(true)}
-            aria-label="Search"
-            className="rounded-full p-2 text-ink-soft hover:bg-surface-alt"
-          >
-            <Search size={20} />
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate('/timetable')}
+              aria-label="Timetable"
+              className="rounded-full p-2 text-ink-soft hover:bg-surface-alt"
+            >
+              <CalendarClock size={20} />
+            </button>
+            <button
+              onClick={() => setSearchOpen(true)}
+              aria-label="Search"
+              className="rounded-full p-2 text-ink-soft hover:bg-surface-alt"
+            >
+              <Search size={20} />
+            </button>
+          </div>
         }
       />
 
