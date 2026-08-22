@@ -88,22 +88,34 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
                   </button>
                 )}
                 <button
-                  onClick={() =>
-                    isBlocked
-                      ? (unblockUser(user!.uid, profile.id), show(`Unblocked ${profile.displayName}`))
-                      : setConfirm({
-                          title: 'Block user?',
-                          message: `${profile.displayName} won't be able to message or call you, and you won't see their DMs.`,
-                          danger: true,
-                          action: () => { blockUser(user!.uid, profile.id); show(`Blocked ${profile.displayName}`); },
-                        })
-                  }
+                  onClick={() => {
+                    if (isBlocked) {
+                      unblockUser(user!.uid, profile.id)
+                        .then(() => show(`Unblocked ${profile.displayName}`))
+                        .catch(() => show("Couldn't unblock. Try again."));
+                    } else {
+                      setConfirm({
+                        title: 'Block user?',
+                        message: `${profile.displayName} won't be able to message or call you, and you won't see their DMs.`,
+                        danger: true,
+                        action: () => {
+                          blockUser(user!.uid, profile.id)
+                            .then(() => show(`Blocked ${profile.displayName}`))
+                            .catch(() => show("Couldn't block. Try again."));
+                        },
+                      });
+                    }
+                  }}
                   className="flex items-center gap-1.5 rounded-full border border-line px-4 py-2 text-sm font-medium text-ink-soft"
                 >
                   <Ban size={16} /> {isBlocked ? 'Unblock' : 'Block'}
                 </button>
                 <button
-                  onClick={() => { reportMessage(`profile:${profile.id}`, user!.uid); show('Reported. Thanks for flagging.'); }}
+                  onClick={() => {
+                    reportMessage(`profile:${profile.id}`, user!.uid)
+                      .then(() => show('Reported. Thanks for flagging.'))
+                      .catch(() => show("Couldn't report. Try again."));
+                  }}
                   aria-label="Report"
                   className="rounded-full border border-line p-2 text-ink-soft"
                 >
