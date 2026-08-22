@@ -17,6 +17,7 @@ import { useFeed } from '../hooks/useFeed';
 import { useStories } from '../hooks/useStories';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../context/AuthContext';
+import SmartDashboard from '../components/home/SmartDashboard';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -58,6 +59,8 @@ export default function HomePage() {
           </div>
         }
       />
+
+      <SmartDashboard />
 
       <div className="border-b border-line">
         <StoryBar
