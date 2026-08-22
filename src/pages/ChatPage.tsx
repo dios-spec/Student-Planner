@@ -14,6 +14,9 @@ import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage } from '../firebase/chat';
 import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
+import { pinClassMessage, unpinClassMessage } from '../firebase/pins';
+import { useClassPins } from '../hooks/useClassPins';
+import PinnedBar from '../components/chat/PinnedBar';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
@@ -22,6 +25,7 @@ export default function ChatPage() {
   const { show } = useToast();
   const { messages, loading } = useMessages();
   const activeCount = useActiveStudentCount();
+  const pinned = useClassPins();
   const [replyTo, setReplyTo] = useState<ChatMessage['replyTo']>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -84,6 +88,22 @@ export default function ChatPage() {
     }
   }
 
+  async function handleTogglePin(m: ChatMessage) {
+    const isPinned = pinned.some((p) => p.messageId === m.id);
+    if (isPinned) {
+      await unpinClassMessage(m.id);
+      return;
+    }
+    const preview = m.text || (m.imageUrl ? '📷 Photo' : m.audioUrl ? '🎤 Voice message' : 'Message');
+    const result = await pinClassMessage({
+      messageId: m.id,
+      text: preview,
+      senderName: m.senderName,
+      pinnedBy: user!.uid,
+    });
+    if (result === 'full') show('Unpin something first — max 20 pinned messages.');
+  }
+
   return (
     <div className="flex h-[calc(100dvh-64px)] flex-col">
       <TopBar
@@ -96,6 +116,8 @@ export default function ChatPage() {
           )
         }
       />
+
+      <PinnedBar pinned={pinned} onUnpin={unpinClassMessage} />
 
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
@@ -119,6 +141,8 @@ export default function ChatPage() {
             }}
             onImageClick={setPreviewUrl}
             onOpenProfile={setViewUid}
+            pinned={pinned.some((p) => p.messageId === m.id)}
+            onTogglePin={() => handleTogglePin(m)}
           />
         ))}
         <div ref={bottomRef} />

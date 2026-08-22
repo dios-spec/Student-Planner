@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SmilePlus, Reply, Trash2 } from 'lucide-react';
+import { SmilePlus, Reply, Trash2, Pin } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import EmojiPicker from '../chat/EmojiPicker';
 import ReactionRow from '../chat/ReactionRow';
@@ -19,11 +19,14 @@ interface DMBubbleProps {
   onImageClick: (url: string) => void;
   onOpenShared: (shared: NonNullable<DMMessage['shared']>) => void;
   onOpenProfile: (uid: string) => void;
+  pinned: boolean;
+  onTogglePin: () => void;
 }
 
 export default function DMBubble({
   message, isMine, myUid, isGroup,
   onReact, onReply, onDelete, onImageClick, onOpenShared, onOpenProfile,
+  pinned, onTogglePin,
 }: DMBubbleProps) {
   const [picker, setPicker] = useState(false);
   const created = message.createdAt?.toDate ? message.createdAt.toDate() : new Date();
@@ -86,6 +89,9 @@ export default function DMBubble({
           </button>
           <button onClick={onReply} className="text-ink-soft hover:text-accent">
             <Reply size={14} />
+          </button>
+          <button onClick={onTogglePin} aria-label={pinned ? 'Unpin' : 'Pin'} className={pinned ? 'text-accent' : 'text-ink-soft hover:text-accent'}>
+            <Pin size={13} className={pinned ? 'fill-accent' : ''} />
           </button>
           {isMine && (
             <button onClick={onDelete} className="text-ink-soft hover:text-coral">

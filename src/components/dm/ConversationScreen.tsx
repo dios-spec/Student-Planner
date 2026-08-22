@@ -13,7 +13,9 @@ import { useCall } from '../../context/CallContext';
 import { useActiveConversation } from '../../context/ActiveConversationContext';
 import { sendDM, toggleDMReaction, deleteDMMessage } from '../../firebase/dm';
 import { markConversationRead } from '../../firebase/conversations';
+import { pinDMMessage, unpinDMMessage } from '../../firebase/pins';
 import { uploadDMImage, uploadVoiceClip } from '../../firebase/storage';
+import PinnedBar from '../chat/PinnedBar';
 import type { Conversation, DMMessage } from '../../types';
 
 interface ConversationScreenProps {
@@ -96,6 +98,27 @@ export default function ConversationScreen({
     }
   }
 
+  async function handleTogglePin(m: DMMessage) {
+    const isPinned = (conversation.pinned || []).some((p) => p.messageId === m.id);
+    if (isPinned) {
+      await unpinDMMessage(conversation, m.id);
+      return;
+    }
+    const preview =
+      m.text ||
+      (m.kind === 'image' ? '📷 Photo' :
+       m.kind === 'voice' ? '🎤 Voice message' :
+       m.kind === 'sharedPost' ? '📮 Shared a post' :
+       m.kind === 'sharedReel' ? '🎬 Shared a reel' : 'Message');
+    const result = await pinDMMessage(conversation, {
+      messageId: m.id,
+      text: preview,
+      senderName: m.senderName,
+      pinnedBy: user!.uid,
+    });
+    if (result === 'full') show('Unpin something first — max 20 pinned messages.');
+  }
+
   return (
     <div className="fixed inset-0 z-[100] flex flex-col bg-paper">
       <header className="flex items-center gap-2 border-b border-line bg-surface px-2 py-2.5 pt-[calc(env(safe-area-inset-top)+0.625rem)]">
@@ -132,6 +155,8 @@ export default function ConversationScreen({
         )}
       </header>
 
+      <PinnedBar pinned={conversation.pinned || []} onUnpin={(id) => unpinDMMessage(conversation, id)} />
+
       <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
         {!loading && messages?.length === 0 && (
@@ -150,6 +175,8 @@ export default function ConversationScreen({
             onImageClick={setPreviewUrl}
             onOpenShared={onOpenShared}
             onOpenProfile={onOpenProfile}
+            pinned={(conversation.pinned || []).some((p) => p.messageId === m.id)}
+            onTogglePin={() => handleTogglePin(m)}
           />
         ))}
         <div ref={bottomRef} />

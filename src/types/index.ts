@@ -184,6 +184,15 @@ export interface Conversation {
   lastAt?: Timestamp | null;
   // per-user unread counts and last-read markers
   unread?: Record<string, number>;
+  pinned?: PinnedMessage[];
+}
+
+export interface PinnedMessage {
+  messageId: string;
+  text?: string;
+  senderName: string;
+  pinnedBy: string;
+  pinnedAt: Timestamp | null;
 }
 
 export type DMMessageKind = 'text' | 'image' | 'voice' | 'sharedPost' | 'sharedReel';

@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SmilePlus, Reply, Trash2, Flag } from 'lucide-react';
+import { SmilePlus, Reply, Trash2, Flag, Pin, PinOff } from 'lucide-react';
 import type { ChatMessage } from '../../types';
 import Avatar from '../shared/Avatar';
 import EmojiPicker from './EmojiPicker';
@@ -17,6 +17,8 @@ interface MessageBubbleProps {
   onReport: () => void;
   onImageClick: (url: string) => void;
   onOpenProfile: (uid: string) => void;
+  pinned: boolean;
+  onTogglePin: () => void;
 }
 
 export default function MessageBubble({
@@ -29,6 +31,8 @@ export default function MessageBubble({
   onReport,
   onImageClick,
   onOpenProfile,
+  pinned,
+  onTogglePin,
 }: MessageBubbleProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -112,6 +116,15 @@ export default function MessageBubble({
 
         {menuOpen && (
           <div className="mt-1 overflow-hidden rounded-xl border border-line bg-surface text-xs shadow-lg">
+            <button
+              onClick={() => {
+                setMenuOpen(false);
+                onTogglePin();
+              }}
+              className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt"
+            >
+              {pinned ? <PinOff size={13} /> : <Pin size={13} />} {pinned ? 'Unpin' : 'Pin'}
+            </button>
             {isMine ? (
               <button
                 onClick={() => {

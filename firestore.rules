@@ -257,6 +257,14 @@ service cloud.firestore {
       }
     }
 
+    // ---- App-wide small metadata docs (e.g. class chat pinned messages) ----
+    match /appMeta/{id} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn()
+        && request.resource.data.pinned is list
+        && request.resource.data.pinned.size() <= 20;
+    }
+
     // ---- Reports: write-only from students, readable only via the console/admin ----
     match /reports/{id} {
       allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;
