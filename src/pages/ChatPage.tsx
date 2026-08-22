@@ -127,7 +127,7 @@ export default function ChatPage() {
 
       <PinnedBar pinned={pinned} onUnpin={unpinClassMessage} />
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div className="social-texture flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
         {!loading && messages?.length === 0 && (
           <EmptyState emoji="💬" title="No messages yet" subtitle="Say hi to the class!" />

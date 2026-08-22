@@ -34,7 +34,7 @@ export default function HomePage() {
   const [shareContent, setShareContent] = useState<ShareContent | null>(null);
 
   return (
-    <div className="pb-24">
+    <div className="social-texture pb-24">
       <TopBar
         title="Home"
         right={

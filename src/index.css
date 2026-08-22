@@ -168,3 +168,18 @@ button, a, input, textarea, select {
   50% { box-shadow: 0 0 0 10px rgba(47, 158, 104, 0); }
 }
 .animate-call-accept-pulse { animation: call-accept-pulse 1.6s ease-out infinite; }
+
+/* Stage 3: social textures -- subtle dot-grain for Home feed and chat surfaces only. Not used
+   on Planner/Upcoming/forms per design brief; adapts automatically for dark mode. */
+
+:root {
+  --texture-dot: rgba(43, 42, 40, 0.035);
+}
+:root.dark {
+  --texture-dot: rgba(236, 233, 225, 0.035);
+}
+
+.social-texture {
+  background-image: radial-gradient(circle, var(--texture-dot) 1px, transparent 1px);
+  background-size: 18px 18px;
+}

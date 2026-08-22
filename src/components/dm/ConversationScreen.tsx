@@ -176,7 +176,7 @@ export default function ConversationScreen({
 
       <PinnedBar pinned={conversation.pinned || []} onUnpin={(id) => unpinDMMessage(conversation, id)} />
 
-      <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div className="social-texture flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
         {!loading && messages?.length === 0 && (
           <EmptyState emoji="👋" title="Say hi!" subtitle="This is the start of your conversation." />
