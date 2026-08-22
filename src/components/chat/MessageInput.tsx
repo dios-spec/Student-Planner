@@ -10,12 +10,13 @@ interface MessageInputProps {
   onSend: (text: string) => void;
   onSendImage: (file: File) => void;
   onSendVoice: (blob: Blob, duration: number) => void;
+  onTyping?: () => void;
   replyTo: ChatMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
 }
 
-export default function MessageInput({ onSend, onSendImage, onSendVoice, replyTo, onCancelReply, uploading }: MessageInputProps) {
+export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, replyTo, onCancelReply, uploading }: MessageInputProps) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
@@ -107,7 +108,10 @@ export default function MessageInput({ onSend, onSendImage, onSendVoice, replyTo
         </button>
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+          onChange={(e) => {
+            setText(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
+            onTyping?.();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 640) {
               e.preventDefault();

@@ -29,10 +29,20 @@ export function CallProvider({ children }: { children: ReactNode }) {
   // Prime Web Audio on the first real gesture so later incoming calls can ring.
   useEffect(() => {
     const prime = () => primeRingtone();
+    // click/touchend/keydown are the events Chrome's Web Audio autoplay
+    // gate reliably recognizes as a completed gesture; pointerdown alone
+    // (the very start of a tap, before the browser confirms intent) is not
+    // always enough, which is what triggered the "AudioContext not allowed
+    // to start" warning. Keeping pointerdown too costs nothing -- priming
+    // is idempotent -- but click/touchend are the ones that actually count.
     window.addEventListener('pointerdown', prime, { once: true });
+    window.addEventListener('click', prime, { once: true });
+    window.addEventListener('touchend', prime, { once: true });
     window.addEventListener('keydown', prime, { once: true });
     return () => {
       window.removeEventListener('pointerdown', prime);
+      window.removeEventListener('click', prime);
+      window.removeEventListener('touchend', prime);
       window.removeEventListener('keydown', prime);
     };
   }, []);

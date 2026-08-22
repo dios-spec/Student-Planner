@@ -14,8 +14,11 @@ import { useActiveConversation } from '../../context/ActiveConversationContext';
 import { sendDM, toggleDMReaction, deleteDMMessage } from '../../firebase/dm';
 import { markConversationRead } from '../../firebase/conversations';
 import { pinDMMessage, unpinDMMessage } from '../../firebase/pins';
+import { setConversationTyping, typingNamesFrom } from '../../firebase/typing';
+import { useTypingThrottle } from '../../hooks/useTypingThrottle';
 import { uploadDMImage, uploadVoiceClip } from '../../firebase/storage';
 import PinnedBar from '../chat/PinnedBar';
+import TypingIndicator from '../chat/TypingIndicator';
 import type { Conversation, DMMessage } from '../../types';
 
 interface ConversationScreenProps {
@@ -35,6 +38,10 @@ export default function ConversationScreen({
   const { startCall } = useCall();
   const { setActiveConversationId } = useActiveConversation();
   const { messages, loading } = useDMMessages(conversation.id);
+  const typingNames = typingNamesFrom(conversation.typing, user?.uid || '');
+  const notifyTyping = useTypingThrottle((isTyping) => {
+    if (user && profile) setConversationTyping(conversation.id, user.uid, profile.displayName, isTyping);
+  });
 
   useEffect(() => {
     setActiveConversationId(conversation.id);
@@ -182,6 +189,8 @@ export default function ConversationScreen({
         <div ref={bottomRef} />
       </div>
 
+      <TypingIndicator names={typingNames} />
+
       {blocked ? (
         <div className="border-t border-line bg-surface px-4 py-4 text-center text-sm text-ink-soft">
           You can't message this person.
@@ -191,6 +200,7 @@ export default function ConversationScreen({
           onSendText={(t) => send({ kind: 'text', text: t })}
           onSendImage={handleImage}
           onSendVoice={handleVoice}
+          onTyping={notifyTyping}
           replyTo={replyTo}
           onCancelReply={() => setReplyTo(null)}
           uploading={uploading}

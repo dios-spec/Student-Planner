@@ -10,13 +10,14 @@ interface DMInputProps {
   onSendText: (text: string) => void;
   onSendImage: (file: File) => void;
   onSendVoice: (blob: Blob, duration: number) => void;
+  onTyping?: () => void;
   replyTo: DMMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
 }
 
 export default function DMInput({
-  onSendText, onSendImage, onSendVoice, replyTo, onCancelReply, uploading,
+  onSendText, onSendImage, onSendVoice, onTyping, replyTo, onCancelReply, uploading,
 }: DMInputProps) {
   const [text, setText] = useState('');
   const [picker, setPicker] = useState(false);
@@ -89,7 +90,10 @@ export default function DMInput({
         </button>
         <textarea
           value={text}
-          onChange={(e) => setText(e.target.value.slice(0, MAX_MESSAGE_LENGTH))}
+          onChange={(e) => {
+            setText(e.target.value.slice(0, MAX_MESSAGE_LENGTH));
+            onTyping?.();
+          }}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && !e.shiftKey && window.innerWidth >= 640) { e.preventDefault(); send(); }
           }}

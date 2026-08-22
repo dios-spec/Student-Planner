@@ -16,7 +16,11 @@ import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage } from '..
 import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
 import { pinClassMessage, unpinClassMessage } from '../firebase/pins';
 import { useClassPins } from '../hooks/useClassPins';
+import { setClassTyping } from '../firebase/typing';
+import { useClassTyping } from '../hooks/useClassTyping';
+import { useTypingThrottle } from '../hooks/useTypingThrottle';
 import PinnedBar from '../components/chat/PinnedBar';
+import TypingIndicator from '../components/chat/TypingIndicator';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
@@ -26,6 +30,10 @@ export default function ChatPage() {
   const { messages, loading } = useMessages();
   const activeCount = useActiveStudentCount();
   const pinned = useClassPins();
+  const typingNames = useClassTyping(user?.uid);
+  const notifyTyping = useTypingThrottle((isTyping) => {
+    if (user && profile) setClassTyping(user.uid, profile.displayName, isTyping);
+  });
   const [replyTo, setReplyTo] = useState<ChatMessage['replyTo']>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
@@ -148,10 +156,13 @@ export default function ChatPage() {
         <div ref={bottomRef} />
       </div>
 
+      <TypingIndicator names={typingNames} />
+
       <MessageInput
         onSend={handleSend}
         onSendImage={handleSendImage}
         onSendVoice={handleSendVoice}
+        onTyping={notifyTyping}
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         uploading={uploading}

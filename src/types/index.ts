@@ -185,6 +185,7 @@ export interface Conversation {
   // per-user unread counts and last-read markers
   unread?: Record<string, number>;
   pinned?: PinnedMessage[];
+  typing?: Record<string, { name: string; at: Timestamp }>;
 }
 
 export interface PinnedMessage {

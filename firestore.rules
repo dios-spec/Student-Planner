@@ -257,12 +257,13 @@ service cloud.firestore {
       }
     }
 
-    // ---- App-wide small metadata docs (e.g. class chat pinned messages) ----
+    // ---- App-wide small metadata docs (e.g. class chat pinned messages, typing indicators) ----
     match /appMeta/{id} {
       allow read: if isSignedIn();
       allow write: if isSignedIn()
-        && request.resource.data.pinned is list
-        && request.resource.data.pinned.size() <= 20;
+        && (!('pinned' in request.resource.data) ||
+            (request.resource.data.pinned is list && request.resource.data.pinned.size() <= 20))
+        && (!('typing' in request.resource.data) || request.resource.data.typing is map);
     }
 
     // ---- Reports: write-only from students, readable only via the console/admin ----
