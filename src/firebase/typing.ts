@@ -21,11 +21,15 @@ export function watchClassTyping(myUid: string, cb: (names: string[]) => void) {
 }
 
 export async function setClassTyping(uid: string, name: string, isTyping: boolean) {
-  await setDoc(
-    classTypingRef,
-    { typing: { [uid]: isTyping ? { name, at: Timestamp.now() } : deleteField() } },
-    { merge: true }
-  ).catch(() => {});
+  try {
+    await setDoc(
+      classTypingRef,
+      { typing: { [uid]: isTyping ? { name, at: Timestamp.now() } : deleteField() } },
+      { merge: true }
+    );
+  } catch (err) {
+    console.error('[TYPING] class chat write failed:', err);
+  }
 }
 
 export async function setConversationTyping(
