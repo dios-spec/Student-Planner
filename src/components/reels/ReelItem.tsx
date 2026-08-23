@@ -37,6 +37,14 @@ export default function ReelItem({
     }
   }, [active]);
 
+  // React does not reliably re-apply the `muted` attribute on <video> after
+  // the initial mount (long-standing React quirk) -- set it imperatively so
+  // the mute button's toggle actually reaches the real video element.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.muted = muted;
+  }, [muted]);
+
   function togglePlay() {
     const v = videoRef.current;
     if (!v) return;

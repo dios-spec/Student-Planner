@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { X, Trash2, Heart, MessageCircle, Send } from 'lucide-react';
+import { X, Trash2, Heart, MessageCircle, Send, Volume2, VolumeX } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import CommentsSheet from './CommentsSheet';
 import ShareSheet, { type ShareContent } from '../dm/ShareSheet';
@@ -26,6 +26,7 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const [shareContent, setShareContent] = useState<ShareContent | null>(null);
   const [holding, setHolding] = useState(false);
+  const [muted, setMuted] = useState(true);
   const timerRef = useRef<number | null>(null);
   const elapsedRef = useRef(0);
   const lastFrameRef = useRef<number | null>(null);
@@ -35,8 +36,6 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
   const group = groups[groupIdx];
   const story = group?.stories[storyIdx];
 
-  // Paused whenever the person is holding to view, or a sheet (comments/share)
-  // is open on top of the story -- either way, it must not advance underneath them.
   const paused = holding || commentsFor !== null || !!shareContent;
   const pausedRef = useRef(paused);
   pausedRef.current = paused;
@@ -76,6 +75,13 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
     else v.play().catch(() => {});
   }, [paused]);
 
+  // Same React <video> quirk as Reels: `muted` doesn't reliably reapply via
+  // the JSX prop after mount, so set it imperatively.
+  useEffect(() => {
+    const v = videoRef.current;
+    if (v) v.muted = muted;
+  }, [muted, storyIdx, groupIdx]);
+
   function advance() {
     if (!group) return;
     if (storyIdx < group.stories.length - 1) {
@@ -108,7 +114,7 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
     }
     if (holding) {
       setHolding(false);
-      return; // was a hold-to-pause, not a navigation tap
+      return;
     }
     if (side === 'left') back();
     else advance();
@@ -127,6 +133,7 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
   const liked = story.likes?.includes(user?.uid || '') ?? false;
   const createdDate = story.createdAt?.toDate ? story.createdAt.toDate() : new Date();
   const chromeHidden = holding;
+  const isVideo = story.mediaType === 'video';
 
   return (
     <div className="fixed inset-0 z-50 flex flex-col bg-black">
@@ -158,6 +165,11 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
         </button>
         <span className="text-xs text-white/60">{relativeTime(createdDate)}</span>
         <div className="ml-auto flex items-center gap-3">
+          {isVideo && (
+            <button onClick={() => setMuted((m) => !m)} aria-label={muted ? 'Unmute' : 'Mute'} className="text-white">
+              {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
+            </button>
+          )}
           {isMine && (
             <button
               onClick={() => {
@@ -177,12 +189,13 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
       </div>
 
       <div className="relative flex flex-1 items-center justify-center overflow-hidden">
-        {story.mediaType === 'video' ? (
+        {isVideo ? (
           <video
             ref={videoRef}
             src={story.imageUrl}
             autoPlay
             playsInline
+            muted={muted}
             className="max-h-full max-w-full object-contain"
           />
         ) : (
