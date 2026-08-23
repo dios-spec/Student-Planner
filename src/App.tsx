@@ -20,7 +20,7 @@ const PlannerPage = lazy(() => import('./pages/PlannerPage'));
 const UpcomingPage = lazy(() => import('./pages/UpcomingPage'));
 const StudyHelpPage = lazy(() => import('./pages/StudyHelpPage'));
 const ReelsPage = lazy(() => import('./pages/ReelsPage'));
-const ChatPage = lazy(() => import('./pages/ChatPage'));
+const ChatPage = lazy(() => import('./pages/ChatRouterPage'));
 const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
@@ -57,7 +57,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/upcoming': 'Upcoming',
   '/study': 'Study Help',
   '/reels': 'Reels',
-  '/chat': 'Class Chat',
+  '/chat': 'Chat',
   '/messages': 'Chats',
   '/notifications': 'Notifications',
   '/timetable': 'Timetable',

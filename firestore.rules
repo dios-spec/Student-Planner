@@ -12,6 +12,9 @@ service cloud.firestore {
     function isTeacher() {
       return isSignedIn() && request.auth.token.get('role', 'student') == 'teacher';
     }
+    function isStudent() {
+      return isSignedIn() && !isTeacher();
+    }
     function strLen(field, max) {
       return field is string && field.size() <= max;
     }
@@ -141,18 +144,17 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
-    // ---- Chat messages ----
+    // ---- Student Class Chat ----
+    // Verified teachers are deliberately excluded: their /chat route uses
+    // teacherMessages instead, and the custom claim is enforced here too.
     match /messages/{id} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
+      allow read: if isStudent();
+      allow create: if isStudent()
         && request.resource.data.senderId == request.auth.uid
         && strLen(request.resource.data.get('text', ''), 500)
         && (request.resource.data.get('imageUrl', '') == '' ||
             request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'));
-      // The sender may only soft-delete their own message (clear text/image, flag deleted).
-      // Everyone else may only ever touch the reactions map — nothing else about a
-      // message can be rewritten after it's sent.
-      allow update: if isSignedIn() && (
+      allow update: if isStudent() && (
         (resource.data.senderId == request.auth.uid
           && request.resource.data.senderId == resource.data.senderId
           && request.resource.data.createdAt == resource.data.createdAt
@@ -161,9 +163,29 @@ service cloud.firestore {
         ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
         ||
-        // poll votes/close: anyone signed in may update the poll field only
-        // (mirrors the reactions pattern above -- vote/close logic itself
-        // is enforced by the client-side transaction, same trust level as reactions)
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
+      );
+      allow delete: if false;
+    }
+
+    // ---- Teachers Chat ----
+    // Both UI routing and Firestore enforce the verified custom claim.
+    match /teacherMessages/{id} {
+      allow read: if isTeacher();
+      allow create: if isTeacher()
+        && request.resource.data.senderId == request.auth.uid
+        && strLen(request.resource.data.get('text', ''), 500)
+        && (request.resource.data.get('imageUrl', '') == '' ||
+            request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'));
+      allow update: if isTeacher() && (
+        (resource.data.senderId == request.auth.uid
+          && request.resource.data.senderId == resource.data.senderId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions', 'edited']))
+        ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+        ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
       );
       allow delete: if false;

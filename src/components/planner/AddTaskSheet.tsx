@@ -9,6 +9,8 @@ import { addPlannerItem, updatePlannerItem } from '../../firebase/planner';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useActiveClass } from '../../context/ClassContext';
+import TeacherClassTarget from '../layout/TeacherClassTarget';
+import { isClassId, type ClassId } from '../../data/classes';
 import { MAX_TASK_DESC_LENGTH, MAX_TASK_TITLE_LENGTH } from '../../utils/moderation';
 import { uploadPlannerAttachment } from '../../firebase/storage';
 import { validateImageFile } from '../../utils/image';
@@ -28,9 +30,10 @@ interface AddTaskSheetProps {
 }
 
 export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: AddTaskSheetProps) {
-  const { user, profile } = useAuth();
+  const { user, profile, isTeacher } = useAuth();
   const { show } = useToast();
   const { activeClass } = useActiveClass();
+  const [targetClass, setTargetClass] = useState<ClassId>(activeClass);
 
   const [subject, setSubject] = useState('maths');
   const [customSubject, setCustomSubject] = useState('');
@@ -56,6 +59,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
   useEffect(() => {
     if (!open) return;
     clearAttachmentDrafts();
+    setTargetClass(editingItem?.classId && isClassId(editingItem.classId) ? editingItem.classId : activeClass);
     if (editingItem) {
       setSubject(editingItem.subject);
       setCategory(editingItem.category);
@@ -77,7 +81,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
       setNote('');
       setExistingAttachments([]);
     }
-  }, [open, editingItem]);
+  }, [open, editingItem, activeClass]);
 
   const finalSubject = subject === '__custom' ? customSubject.trim().toLowerCase().replace(/\s+/g, '-') : subject;
 
@@ -128,7 +132,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
         }))
       );
       const payload = {
-        classId: editingItem?.classId || activeClass,
+        classId: isTeacher ? targetClass : (editingItem?.classId || activeClass),
         date: dateKey,
         subject: finalSubject,
         category,
@@ -180,6 +184,15 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
             <Bell size={16} /> Remind me about this
           </button>
         )}
+
+        {isTeacher && (
+          <TeacherClassTarget
+            value={targetClass}
+            onChange={setTargetClass}
+            label={editingItem ? 'Move task to class' : 'Send task to class'}
+          />
+        )}
+
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Subject</label>
           <div className="flex flex-wrap gap-2">

@@ -15,9 +15,10 @@ interface MessageInputProps {
   replyTo: ChatMessage['replyTo'];
   onCancelReply: () => void;
   uploading: boolean;
+  placeholder?: string;
 }
 
-export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading }: MessageInputProps) {
+export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading, placeholder = 'Message the classâ€¦' }: MessageInputProps) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);
@@ -129,7 +130,7 @@ export default function MessageInput({ onSend, onSendImage, onSendVoice, onTypin
             }
           }}
           rows={1}
-          placeholder="Message the class…"
+          placeholder={placeholder}
           className="max-h-24 flex-1 resize-none rounded-2xl border border-line bg-paper px-3.5 py-2.5 text-sm outline-none focus:border-accent"
         />
         {text.trim() ? (

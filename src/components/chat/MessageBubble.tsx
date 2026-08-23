@@ -25,11 +25,12 @@ interface MessageBubbleProps {
   onEditMessage: (newText: string) => void;
   saved: boolean;
   onToggleSave: () => void;
+  hidePinAndSave?: boolean;
 }
 
 export default function MessageBubble({
   message, isMine, myUid, onReact, onReply, onDelete, onReport, onImageClick, onOpenProfile,
-  pinned, onTogglePin, onVotePoll, onClosePoll, onEditMessage, saved, onToggleSave,
+  pinned, onTogglePin, onVotePoll, onClosePoll, onEditMessage, saved, onToggleSave, hidePinAndSave = false,
 }: MessageBubbleProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -115,12 +116,16 @@ export default function MessageBubble({
 
         {menuOpen && (
           <div className="mt-1 overflow-hidden rounded-xl border border-line bg-surface text-xs shadow-lg">
-            <button onClick={() => { setMenuOpen(false); onTogglePin(); }} className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt">
-              {pinned ? <PinOff size={13} /> : <Pin size={13} />} {pinned ? 'Unpin' : 'Pin'}
-            </button>
-            <button onClick={() => { setMenuOpen(false); onToggleSave(); }} className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt">
-              <Bookmark size={13} className={saved ? 'fill-current' : ''} /> {saved ? 'Unsave' : 'Save'}
-            </button>
+            {!hidePinAndSave && (
+              <>
+                <button onClick={() => { setMenuOpen(false); onTogglePin(); }} className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt">
+                  {pinned ? <PinOff size={13} /> : <Pin size={13} />} {pinned ? 'Unpin' : 'Pin'}
+                </button>
+                <button onClick={() => { setMenuOpen(false); onToggleSave(); }} className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt">
+                  <Bookmark size={13} className={saved ? 'fill-current' : ''} /> {saved ? 'Unsave' : 'Save'}
+                </button>
+              </>
+            )}
             {canEdit && (
               <button onClick={() => { setMenuOpen(false); setEditText(message.text || ''); setEditing(true); }} className="flex w-full items-center gap-1.5 px-3 py-2 text-ink-soft hover:bg-surface-alt">
                 <Pencil size={13} /> Edit

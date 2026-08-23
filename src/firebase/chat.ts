@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import { db } from './config';
 import type { ChatMessage } from '../types';
-import { pushNotification, pushToAll } from './notifications';
+import { pushNotification, pushToStudents } from './notifications';
 
 const messagesCol = collection(db, 'messages');
 const PAGE_SIZE = 30;
@@ -51,7 +51,7 @@ export async function sendMessage(msg: NewMessage) {
     msg.text?.trim() ||
     (msg.imageUrl ? 'Photo' : msg.audioUrl ? 'Voice message' : 'New message');
 
-  void pushToAll(
+  void pushToStudents(
     {
       type: 'classMessage',
       title: 'Class Chat',
@@ -158,7 +158,7 @@ export async function sendPoll(p: NewPoll) {
   });
   await addDoc(messagesCol, payload);
 
-  void pushToAll(
+  void pushToStudents(
     {
       type: 'classMessage',
       title: 'Class Chat',

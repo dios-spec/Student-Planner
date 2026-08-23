@@ -113,6 +113,48 @@ export async function pushToClass(
   await pushToMany(ids, base, senderUid);
 }
 
+/** Notify students only. Legacy profiles without a role are treated as students. */
+export async function pushToStudents(
+  base: Omit<NewNotification, 'userId'>,
+  fromUid?: string
+) {
+  const senderUid = fromUid || auth.currentUser?.uid;
+  if (!senderUid) return;
+
+  const snap = await getDocs(query(collection(db, 'users'), limit(300)));
+  const ids = snap.docs
+    .filter(
+      (d) =>
+        d.id !== senderUid &&
+        d.data().onboarded !== false &&
+        d.data().role !== 'teacher'
+    )
+    .map((d) => d.id);
+
+  await pushToMany(ids, base, senderUid);
+}
+
+/** Notify verified teacher profiles only. Authorization still comes from token claims/rules. */
+export async function pushToTeachers(
+  base: Omit<NewNotification, 'userId'>,
+  fromUid?: string
+) {
+  const senderUid = fromUid || auth.currentUser?.uid;
+  if (!senderUid) return;
+
+  const snap = await getDocs(query(collection(db, 'users'), limit(300)));
+  const ids = snap.docs
+    .filter(
+      (d) =>
+        d.id !== senderUid &&
+        d.data().onboarded !== false &&
+        d.data().role === 'teacher'
+    )
+    .map((d) => d.id);
+
+  await pushToMany(ids, base, senderUid);
+}
+
 /** Notify every onboarded Student Planner user except the sender. */
 export async function pushToAll(
   base: Omit<NewNotification, 'userId'>,
