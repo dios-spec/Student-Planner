@@ -5,13 +5,22 @@ import EmptyState from '../components/shared/EmptyState';
 import { useNotifications } from '../hooks/useNotifications';
 import { markNotificationRead, markAllRead, clearNotification } from '../firebase/notifications';
 import { useAuth } from '../context/AuthContext';
+import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
 import { relativeTime } from '../utils/date';
 import type { AppNotification } from '../types';
+
+// Only these notification types have a PERSON's name as the title -- system
+// notifications like "Class Chat" or "New test/exam" are not identities and
+// should never be overridden by a live profile lookup.
+const PERSON_TITLE_TYPES = new Set(['dm', 'reply', 'groupMessage', 'comment']);
 
 export default function NotificationsPage() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { notifications, unread } = useNotifications(user?.uid);
+  const profiles = useLiveProfiles(
+    notifications.filter((n) => PERSON_TITLE_TYPES.has(n.type)).map((n) => n.fromUid)
+  );
 
   function open(n: AppNotification) {
     markNotificationRead(n.id);
@@ -39,21 +48,25 @@ export default function NotificationsPage() {
           </div>
         ) : (
           <div className="divide-y divide-line">
-            {notifications.map((n) => (
+            {notifications.map((n) => {
+              const isPerson = PERSON_TITLE_TYPES.has(n.type) && n.fromUid;
+              const title = isPerson ? liveName(profiles, n.fromUid!, n.title) : n.title;
+              const icon = isPerson ? liveAvatar(profiles, n.fromUid!, n.icon) : n.icon;
+              return (
               <div
                 key={n.id}
                 className={`flex items-center gap-3 px-4 py-3 ${n.read ? '' : 'bg-accent-soft/40'}`}
               >
                 <button onClick={() => open(n)} className="flex flex-1 items-center gap-3 text-left">
-                  {n.icon ? (
-                    <Avatar name={n.title} src={n.icon} size="md" />
+                  {icon ? (
+                    <Avatar name={title} src={icon} size="md" />
                   ) : (
                     <div className="flex h-11 w-11 items-center justify-center rounded-full bg-accent-soft text-accent">
                       <Bell size={18} />
                     </div>
                   )}
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-ink">{n.title}</p>
+                    <p className="truncate text-sm font-semibold text-ink">{title}</p>
                     {n.body && <p className="truncate text-xs text-ink-soft">{n.body}</p>}
                     <p className="text-[11px] text-ink-soft">
                       {n.createdAt?.toDate ? relativeTime(n.createdAt.toDate()) : ''}
@@ -65,7 +78,8 @@ export default function NotificationsPage() {
                   <X size={16} />
                 </button>
               </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
