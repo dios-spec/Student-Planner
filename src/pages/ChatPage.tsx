@@ -22,6 +22,7 @@ import { useTypingThrottle } from '../hooks/useTypingThrottle';
 import PinnedBar from '../components/chat/PinnedBar';
 import TypingIndicator from '../components/chat/TypingIndicator';
 import CreatePollSheet from '../components/chat/CreatePollSheet';
+import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
 import type { ChatMessage } from '../types';
 
 export default function ChatPage() {
@@ -31,6 +32,7 @@ export default function ChatPage() {
   const { messages, loading } = useMessages();
   const activeCount = useActiveStudentCount();
   const pinned = useClassPins();
+  const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
   const typingNames = useClassTyping(user?.uid);
   const notifyTyping = useTypingThrottle((isTyping) => {
     if (user && profile) setClassTyping(user.uid, profile.displayName, isTyping);
@@ -148,7 +150,11 @@ export default function ChatPage() {
         {messages?.map((m) => (
           <MessageBubble
             key={m.id}
-            message={m}
+            message={{
+              ...m,
+              senderName: liveName(profiles, m.senderId, m.senderName),
+              senderAvatar: liveAvatar(profiles, m.senderId, m.senderAvatar),
+            }}
             isMine={m.senderId === user.uid}
             myUid={user.uid}
             onReact={(emoji, already) => toggleReaction(m.id, emoji, user.uid, already)}

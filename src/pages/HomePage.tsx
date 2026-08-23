@@ -18,6 +18,7 @@ import { useStories } from '../hooks/useStories';
 import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../context/AuthContext';
 import SmartDashboard from '../components/home/SmartDashboard';
+import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -25,6 +26,15 @@ export default function HomePage() {
   const { unread } = useNotifications(user?.uid);
   const { posts, loading } = useFeed();
   const { groups } = useStories();
+  const profiles = useLiveProfiles([
+    ...(posts || []).map((p) => p.authorId),
+    ...groups.map((g) => g.authorId),
+  ]);
+  const liveGroups = groups.map((g) => ({
+    ...g,
+    authorName: liveName(profiles, g.authorId, g.authorName),
+    authorAvatar: liveAvatar(profiles, g.authorId, g.authorAvatar),
+  }));
   const [storyStart, setStoryStart] = useState<number | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
   const [createPostOpen, setCreatePostOpen] = useState(false);
@@ -64,7 +74,7 @@ export default function HomePage() {
 
       <div className="border-b border-line">
         <StoryBar
-          groups={groups}
+          groups={liveGroups}
           onOpenGroup={(i) => setStoryStart(i)}
           onCreate={() => setCreateStoryOpen(true)}
         />
@@ -82,7 +92,11 @@ export default function HomePage() {
         {posts?.map((post) => (
           <PostCard
             key={post.id}
-            post={post}
+            post={{
+              ...post,
+              authorName: liveName(profiles, post.authorId, post.authorName),
+              authorAvatar: liveAvatar(profiles, post.authorId, post.authorAvatar),
+            }}
             onOpenProfile={setViewUid}
             onImageClick={setPreviewUrl}
             onOpenComments={setCommentsPostId}
@@ -92,7 +106,7 @@ export default function HomePage() {
       </div>
 
       {storyStart !== null && (
-        <StoryViewer groups={groups} startIndex={storyStart} onClose={() => setStoryStart(null)} onOpenProfile={setViewUid} />
+        <StoryViewer groups={liveGroups} startIndex={storyStart} onClose={() => setStoryStart(null)} onOpenProfile={setViewUid} />
       )}
       <CreateStory open={createStoryOpen} onClose={() => setCreateStoryOpen(false)} />
       <CreatePost open={createPostOpen} onClose={() => setCreatePostOpen(false)} />

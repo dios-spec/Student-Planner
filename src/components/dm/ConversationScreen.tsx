@@ -18,6 +18,7 @@ import { setConversationTyping, typingNamesFrom } from '../../firebase/typing';
 import { useTypingThrottle } from '../../hooks/useTypingThrottle';
 import { uploadDMImage, uploadVoiceClip } from '../../firebase/storage';
 import { watchUserProfile } from '../../firebase/users';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import PinnedBar from '../chat/PinnedBar';
 import TypingIndicator from '../chat/TypingIndicator';
 import PresenceLabel from '../shared/PresenceLabel';
@@ -41,6 +42,7 @@ export default function ConversationScreen({
   const { startCall } = useCall();
   const { setActiveConversationId } = useActiveConversation();
   const { messages, loading } = useDMMessages(conversation.id);
+  const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
   const typingNames = typingNamesFrom(conversation.typing, user?.uid || '');
   const notifyTyping = useTypingThrottle((isTyping) => {
     if (user && profile) setConversationTyping(conversation.id, user.uid, profile.displayName, isTyping);
@@ -59,9 +61,11 @@ export default function ConversationScreen({
   const isGroup = conversation.type === 'group';
   const otherId = isGroup ? '' : conversation.memberIds.find((m) => m !== user?.uid) || '';
   const other = conversation.members[otherId];
-  const title = isGroup ? conversation.name || 'Group' : other?.name || 'Chat';
-  const photo = isGroup ? conversation.photoUrl : other?.avatar;
   const [otherProfile, setOtherProfile] = useState<StudentProfile | null>(null);
+  // Prefer the LIVE profile (renamed/avatar-changed) over the denormalized
+  // snapshot frozen on the conversation doc at creation time.
+  const title = isGroup ? conversation.name || 'Group' : (otherProfile?.displayName || other?.name || 'Chat');
+  const photo = isGroup ? conversation.photoUrl : (otherProfile?.avatarUrl ?? other?.avatar);
 
   // Read receipts: only computed for the sender's most recent message, kept
   // compact (single label, not per-bubble ticks) per the "don't clutter" rule.
@@ -216,7 +220,11 @@ export default function ConversationScreen({
         {messages?.map((m) => (
           <DMBubble
             key={m.id}
-            message={m}
+            message={{
+              ...m,
+              senderName: liveName(profiles, m.senderId, m.senderName),
+              senderAvatar: liveAvatar(profiles, m.senderId, m.senderAvatar),
+            }}
             isMine={m.senderId === user.uid}
             myUid={user.uid}
             isGroup={isGroup}

@@ -11,10 +11,12 @@ import EmptyState from '../components/shared/EmptyState';
 import { useReels } from '../hooks/useReels';
 import { deleteReel } from '../firebase/reels';
 import type { Reel } from '../types';
+import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
 
 export default function ReelsPage() {
   const navigate = useNavigate();
   const { reels, loading } = useReels();
+  const profiles = useLiveProfiles((reels || []).map((r) => r.authorId));
   const [activeIdx, setActiveIdx] = useState(0);
   const [muted, setMuted] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -70,7 +72,11 @@ export default function ReelsPage() {
             className="h-full w-full snap-start"
           >
             <ReelItem
-              reel={reel}
+              reel={{
+                ...reel,
+                authorName: liveName(profiles, reel.authorId, reel.authorName),
+                authorAvatar: liveAvatar(profiles, reel.authorId, reel.authorAvatar),
+              }}
               active={i === activeIdx}
               muted={muted}
               onToggleMute={() => setMuted((m) => !m)}
