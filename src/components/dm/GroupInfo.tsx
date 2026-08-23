@@ -5,6 +5,7 @@ import ConfirmDialog from '../shared/ConfirmDialog';
 import { listAllProfiles, addGroupMembers, removeGroupMember, promoteToAdmin, demoteAdmin, leaveGroup, updateGroupInfo } from '../../firebase/conversations';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import type { Conversation, StudentProfile } from '../../types';
 
 interface GroupInfoProps {
@@ -34,7 +35,17 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
   }, [addOpen, user, conversation.memberIds]);
 
   const members = conversation.memberIds;
-  const memberInfo = (id: string) => conversation.members[id] || { name: 'Unknown' };
+  const profiles = useLiveProfiles(members);
+  // Prefer the LIVE profile over the denormalized snapshot frozen on the
+  // conversation doc when each member was added -- same pattern used for
+  // chat bubbles, posts, reels, and stories.
+  const memberInfo = (id: string) => {
+    const fallback = conversation.members[id] || { name: 'Unknown' };
+    return {
+      name: liveName(profiles, id, fallback.name),
+      avatar: liveAvatar(profiles, id, fallback.avatar),
+    };
+  };
 
   const adminMembers = members.filter((m) => admins.includes(m));
   const regularMembers = members.filter((m) => !admins.includes(m));
