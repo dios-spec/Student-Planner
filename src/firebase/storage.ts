@@ -53,6 +53,13 @@ export async function uploadStudyImage(file: File, uid: string): Promise<string>
   return uploadToCloudinary(blob, `study/${uid}`);
 }
 
+export async function uploadPlannerAttachment(file: File, uid: string): Promise<string> {
+  const err = validateImageFile(file);
+  if (err) throw new Error(err);
+  const blob = await compressImage(file, { maxDimension: 1800, quality: 0.82 });
+  return uploadToCloudinary(blob, `plannerAttachments/${uid}`);
+}
+
 /** Uploads a recorded voice clip. Cloudinary serves audio via its video endpoint. */
 export async function uploadVoiceClip(blob: Blob, uid: string): Promise<string> {
   const formData = new FormData();

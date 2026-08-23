@@ -3,6 +3,7 @@ import { Check, MoreVertical, Pencil, Trash2, Star } from 'lucide-react';
 import type { PlannerItem } from '../../types';
 import SubjectPill from '../shared/SubjectPill';
 import { daysLeftLabel } from '../../utils/date';
+import PlannerAttachments from './PlannerAttachments';
 
 interface TaskCardProps {
   item: PlannerItem;
@@ -47,6 +48,7 @@ export default function TaskCard({ item, done, onToggleDone, onEdit, onDelete, s
           {item.description && <p className="mt-0.5 text-sm text-ink-soft">{item.description}</p>}
           {item.portion && <p className="mt-0.5 text-xs text-ink-soft">Portion: {item.portion}</p>}
           {item.note && <p className="mt-1 text-xs italic text-ink-soft">{item.note}</p>}
+          <PlannerAttachments attachments={item.attachments} />
           {(item.updatedByName || item.createdByName) && (
             <p className="mt-1.5 text-[11px] text-ink-soft/70">{item.updatedByName ? `Updated by ${item.updatedByName}` : `Added by ${item.createdByName}`}</p>
           )}

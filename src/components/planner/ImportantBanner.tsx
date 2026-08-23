@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Megaphone, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { PlannerItem } from '../../types';
+import PlannerAttachments from './PlannerAttachments';
 
 interface ImportantBannerProps {
   items: PlannerItem[];
@@ -20,6 +21,7 @@ export default function ImportantBanner({ items, onEdit, onDelete }: ImportantBa
           <div className="min-w-0 flex-1">
             <p className="text-sm font-semibold text-coral">{item.title}</p>
             {item.description && <p className="text-xs text-coral/80">{item.description}</p>}
+            <PlannerAttachments attachments={item.attachments} compact />
           </div>
           <div className="relative shrink-0">
             <button

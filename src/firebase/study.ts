@@ -3,6 +3,8 @@ import {
   collection,
   deleteDoc,
   doc,
+  getDocs,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -10,7 +12,7 @@ import {
   where,
 } from 'firebase/firestore';
 import { db } from './config';
-import type { StudyMaterial } from '../types';
+import type { StudyMaterial, StudyMaterialKind } from '../types';
 import { pushToClass } from './notifications';
 
 const col = collection(db, 'studyMaterials');
@@ -26,6 +28,8 @@ export interface NewStudyMaterial {
   subject: string;
   chapter: string;
   title: string;
+  description?: string;
+  kind: StudyMaterialKind;
   imageUrl: string;
   uploaderId: string;
   uploaderName: string;
@@ -38,7 +42,7 @@ export async function addStudyMaterial(m: NewStudyMaterial) {
   void pushToClass(
     m.classId,
     {
-      type: 'homework',
+      type: 'studyHelp',
       title: 'New Study Help material',
       body: `${m.subject} • ${m.chapter}: ${m.title}`,
       icon: m.uploaderAvatar,
@@ -55,6 +59,13 @@ export function watchStudyMaterials(classId: string, cb: (items: StudyMaterial[]
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudyMaterial));
   });
+}
+
+/** Bounded class-scoped read used by app-wide search. */
+export async function getStudyMaterialsOnce(classId: string): Promise<StudyMaterial[]> {
+  const q = query(col, where('classId', '==', classId), orderBy('createdAt', 'desc'), limit(160));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudyMaterial);
 }
 
 /** Uploader-only delete. */

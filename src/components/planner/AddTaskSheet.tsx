@@ -1,15 +1,24 @@
-import { useEffect, useState } from 'react';
-import { Bell } from 'lucide-react';
+import { useEffect, useRef, useState } from 'react';
+import { Bell, ImagePlus, X } from 'lucide-react';
 import Modal from '../shared/Modal';
 import RemindMeSheet from './RemindMeSheet';
 import { DEFAULT_SUBJECTS } from '../../data/subjects';
 import { CATEGORY_ORDER, CATEGORY_META } from '../../data/categories';
-import type { PlannerCategory, PlannerItem } from '../../types';
+import type { PlannerAttachment, PlannerCategory, PlannerItem } from '../../types';
 import { addPlannerItem, updatePlannerItem } from '../../firebase/planner';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useActiveClass } from '../../context/ClassContext';
 import { MAX_TASK_DESC_LENGTH, MAX_TASK_TITLE_LENGTH } from '../../utils/moderation';
+import { uploadPlannerAttachment } from '../../firebase/storage';
+import { validateImageFile } from '../../utils/image';
+
+const MAX_ATTACHMENTS = 4;
+
+interface AttachmentDraft {
+  file: File;
+  previewUrl: string;
+}
 
 interface AddTaskSheetProps {
   open: boolean;
@@ -33,9 +42,20 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
   const [note, setNote] = useState('');
   const [saving, setSaving] = useState(false);
   const [remindOpen, setRemindOpen] = useState(false);
+  const [existingAttachments, setExistingAttachments] = useState<PlannerAttachment[]>([]);
+  const [attachmentDrafts, setAttachmentDrafts] = useState<AttachmentDraft[]>([]);
+  const attachmentInputRef = useRef<HTMLInputElement>(null);
+
+  function clearAttachmentDrafts() {
+    setAttachmentDrafts((current) => {
+      current.forEach((draft) => URL.revokeObjectURL(draft.previewUrl));
+      return [];
+    });
+  }
 
   useEffect(() => {
     if (!open) return;
+    clearAttachmentDrafts();
     if (editingItem) {
       setSubject(editingItem.subject);
       setCategory(editingItem.category);
@@ -44,6 +64,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
       setDueDate(editingItem.dueDate || '');
       setPortion(editingItem.portion || '');
       setNote(editingItem.note || '');
+      setExistingAttachments(editingItem.attachments || []);
       setCustomSubject('');
     } else {
       setSubject('maths');
@@ -54,16 +75,58 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
       setDueDate('');
       setPortion('');
       setNote('');
+      setExistingAttachments([]);
     }
   }, [open, editingItem]);
 
   const finalSubject = subject === '__custom' ? customSubject.trim().toLowerCase().replace(/\s+/g, '-') : subject;
+
+  function chooseAttachments(files: FileList | null) {
+    if (!files?.length) return;
+    const room = MAX_ATTACHMENTS - existingAttachments.length - attachmentDrafts.length;
+    if (room <= 0) {
+      show(`You can attach up to ${MAX_ATTACHMENTS} images.`);
+      return;
+    }
+
+    const selected = Array.from(files);
+    const next: AttachmentDraft[] = [];
+    selected.slice(0, room).forEach((file) => {
+      const error = validateImageFile(file);
+      if (error) {
+        show(`${file.name}: ${error}`);
+        return;
+      }
+      next.push({ file, previewUrl: URL.createObjectURL(file) });
+    });
+    if (selected.length > room) show(`Only ${MAX_ATTACHMENTS} images can be attached.`);
+    setAttachmentDrafts((current) => [...current, ...next]);
+  }
+
+  function removeDraft(index: number) {
+    setAttachmentDrafts((current) => current.filter((draft, draftIndex) => {
+      if (draftIndex === index) URL.revokeObjectURL(draft.previewUrl);
+      return draftIndex !== index;
+    }));
+  }
+
+  function handleClose() {
+    if (saving) return;
+    clearAttachmentDrafts();
+    onClose();
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!user || !profile || !title.trim() || !finalSubject) return;
     setSaving(true);
     try {
+      const uploadedAttachments = await Promise.all(
+        attachmentDrafts.map(async ({ file }) => ({
+          url: await uploadPlannerAttachment(file, user.uid),
+          name: file.name.slice(0, 120),
+        }))
+      );
       const payload = {
         classId: editingItem?.classId || activeClass,
         date: dateKey,
@@ -74,6 +137,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
         dueDate: dueDate || undefined,
         portion: portion.trim() || undefined,
         note: note.trim() || undefined,
+        attachments: [...existingAttachments, ...uploadedAttachments],
       };
       if (editingItem) {
         await updatePlannerItem(editingItem.id, payload, user.uid, profile.displayName);
@@ -82,6 +146,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
         await addPlannerItem(payload, user.uid, profile.displayName);
         show('Task added');
       }
+      clearAttachmentDrafts();
       onClose();
     } catch {
       show("Couldn't save. Try again.");
@@ -93,8 +158,19 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
   const needsDueDate = category === 'test' || category === 'project';
 
   return (
-    <Modal open={open} onClose={onClose} title={editingItem ? 'Edit Task' : 'Add Task'}>
+    <Modal open={open} onClose={handleClose} title={editingItem ? 'Edit Task' : 'Add Task'}>
       <form onSubmit={handleSubmit} className="space-y-4">
+        <input
+          ref={attachmentInputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/gif"
+          multiple
+          className="hidden"
+          onChange={(event) => {
+            chooseAttachments(event.target.files);
+            event.target.value = '';
+          }}
+        />
         {editingItem && (
           <button
             type="button"
@@ -217,6 +293,54 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
             />
           </div>
         )}
+
+        <div>
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <label className="text-sm font-semibold text-ink">Attachments (optional)</label>
+            <span className="text-xs text-ink-soft">{existingAttachments.length + attachmentDrafts.length}/{MAX_ATTACHMENTS}</span>
+          </div>
+
+          {(existingAttachments.length > 0 || attachmentDrafts.length > 0) && (
+            <div className="mb-2 grid grid-cols-4 gap-2">
+              {existingAttachments.map((attachment, index) => (
+                <div key={`${attachment.url}-${index}`} className="relative aspect-square overflow-hidden rounded-xl border border-line bg-surface-alt">
+                  <img src={attachment.url} alt={attachment.name || `Attachment ${index + 1}`} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setExistingAttachments((current) => current.filter((_, itemIndex) => itemIndex !== index))}
+                    aria-label={`Remove ${attachment.name || `attachment ${index + 1}`}`}
+                    className="absolute right-1 top-1 rounded-full bg-black/65 p-1 text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+              {attachmentDrafts.map((draft, index) => (
+                <div key={`${draft.file.name}-${draft.file.lastModified}-${index}`} className="relative aspect-square overflow-hidden rounded-xl border border-line bg-surface-alt">
+                  <img src={draft.previewUrl} alt={draft.file.name} className="h-full w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => removeDraft(index)}
+                    aria-label={`Remove ${draft.file.name}`}
+                    className="absolute right-1 top-1 rounded-full bg-black/65 p-1 text-white"
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <button
+            type="button"
+            disabled={existingAttachments.length + attachmentDrafts.length >= MAX_ATTACHMENTS}
+            onClick={() => attachmentInputRef.current?.click()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl border border-dashed border-line px-4 py-2.5 text-sm font-medium text-accent disabled:cursor-not-allowed disabled:opacity-45"
+          >
+            <ImagePlus size={17} /> Add images
+          </button>
+          <p className="mt-1.5 text-xs text-ink-soft">Up to 4 images. They are compressed before upload.</p>
+        </div>
 
         <button
           type="submit"

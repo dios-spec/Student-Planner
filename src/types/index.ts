@@ -25,6 +25,14 @@ export type PlannerCategory =
   | 'project'
   | 'important';
 
+export interface PlannerAttachment {
+  url: string;
+  thumbnailUrl?: string;
+  name: string;
+  width?: number;
+  height?: number;
+}
+
 export interface PlannerItem {
   id: string;
   classId: string; // '7A' | '7B' | '7C' — which class this item belongs to
@@ -36,6 +44,7 @@ export interface PlannerItem {
   dueDate?: string; // for projects/tests, may differ from "date"
   portion?: string; // syllabus/portion text for tests
   note?: string; // shared note e.g. "Bring cardboard + colours"
+  attachments?: PlannerAttachment[];
   createdBy: string;
   createdByName: string;
   createdAt: Timestamp | null;
@@ -77,7 +86,7 @@ export interface NotificationSettings {
   homework?: boolean;
   exam?: boolean;
   announcement?: boolean;
-  studyHelp?: boolean; // reserved -- no notification trigger exists yet
+  studyHelp?: boolean;
   groupEvents?: boolean; // groupInvite/adminPromote/addedToGroup
   sound?: boolean; // local: call ringtone tone+vibration together
   vibration?: boolean; // reserved for future split from sound
@@ -197,12 +206,23 @@ export interface Comment {
   createdAt: Timestamp | null;
 }
 
+export type StudyMaterialKind =
+  | 'notes'
+  | 'summary'
+  | 'formula-sheet'
+  | 'mind-map'
+  | 'question-paper'
+  | 'diagram'
+  | 'other';
+
 export interface StudyMaterial {
   id: string;
   classId: string;
   subject: string;
   chapter: string;
   title: string;
+  description?: string;
+  kind?: StudyMaterialKind;
   imageUrl: string;
   uploaderId: string;
   uploaderName: string;
@@ -304,6 +324,7 @@ export type NotifType =
   | 'postLike'
   | 'classMessage'
   | 'classReaction'
+  | 'studyHelp'
   | 'storyNew' | 'reelLike' | 'storyLike';
 
 export interface AppNotification {

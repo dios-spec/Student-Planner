@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
-import { MoreVertical, Pencil, Trash2, ClipboardCheck, FolderKanban } from 'lucide-react';
+import { MoreVertical, Pencil, Trash2, ClipboardCheck, FolderKanban, Search } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useUpcoming } from '../hooks/useUpcoming';
-import { relativeDayLabel } from '../utils/date';
+import { daysLeftLabel, relativeDayLabel } from '../utils/date';
 import SubjectPill from '../components/shared/SubjectPill';
 import EmptyState from '../components/shared/EmptyState';
 import { PlannerSkeleton } from '../components/shared/Skeleton';
@@ -15,6 +15,8 @@ import { useToast } from '../context/ToastContext';
 import type { PlannerItem } from '../types';
 import { useActiveClass } from '../context/ClassContext';
 import ClassSelector from '../components/layout/ClassSelector';
+import PlannerAttachments from '../components/planner/PlannerAttachments';
+import SearchOverlay from '../components/shared/SearchOverlay';
 
 export default function UpcomingPage() {
   const { user, profile } = useAuth();
@@ -25,6 +27,7 @@ export default function UpcomingPage() {
   const [sheetOpen, setSheetOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<PlannerItem | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   const groupedByDate = useMemo(() => {
     const map: Record<string, PlannerItem[]> = {};
@@ -53,7 +56,14 @@ export default function UpcomingPage() {
 
   return (
     <div className="pb-24">
-      <TopBar title="Upcoming" />
+      <TopBar
+        title="Upcoming"
+        right={(
+          <button type="button" onClick={() => setSearchOpen(true)} aria-label="Search app" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
+            <Search size={20} />
+          </button>
+        )}
+      />
       <div className="space-y-6 px-4 pt-4">
         <ClassSelector />
         {loading && <PlannerSkeleton />}
@@ -82,8 +92,14 @@ export default function UpcomingPage() {
                       <div className="mb-1 flex items-center gap-1.5">
                         <SubjectPill subjectId={item.subject} size="sm" />
                         <span className="text-xs text-ink-soft">{CATEGORY_META[item.category].label}</span>
+                        {(item.category === 'test' || item.category === 'project') && (
+                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.category === 'test' ? 'bg-coral-soft text-coral' : 'bg-accent-soft text-accent'}`}>
+                            {daysLeftLabel(item.dueDate || item.date)}
+                          </span>
+                        )}
                       </div>
                       <p className="truncate text-sm font-medium text-ink">{item.title}</p>
+                      <PlannerAttachments attachments={item.attachments} compact />
                     </div>
 
                     <div className="relative shrink-0">
@@ -137,6 +153,7 @@ export default function UpcomingPage() {
         onConfirm={confirmDelete}
         onCancel={() => setDeleteTarget(null)}
       />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

@@ -3,7 +3,7 @@ const CATEGORY_MAP = {
   reply: 'reply', comment: 'comment',
   postLike: 'postLike', reelLike: 'reelLike', storyLike: 'storyLike',
   incomingCall: 'calls', missedCall: 'missedCall',
-  homework: 'homework', exam: 'exam', announcement: 'announcement',
+  homework: 'homework', exam: 'exam', announcement: 'announcement', studyHelp: 'studyHelp',
   groupInvite: 'groupEvents', adminPromote: 'groupEvents', addedToGroup: 'groupEvents',
 };
 

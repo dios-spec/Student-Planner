@@ -4,6 +4,7 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
   onSnapshot,
   query,
   serverTimestamp,
@@ -30,7 +31,7 @@ export type NewPlannerItem = Pick<
   PlannerItem,
   'classId' | 'date' | 'subject' | 'category' | 'title'
 > &
-  Partial<Pick<PlannerItem, 'description' | 'dueDate' | 'portion' | 'note'>>;
+  Partial<Pick<PlannerItem, 'description' | 'dueDate' | 'portion' | 'note' | 'attachments'>>;
 
 export async function addPlannerItem(
   item: NewPlannerItem,
@@ -132,7 +133,7 @@ export function watchPlannerItemsForDate(
   });
 }
 
-/** Live listener for a date range, used by the Upcoming tab. */
+/** Live listener for a date range. Tests/projects are placed by due date when present. */
 export function watchPlannerItemsInRange(
   classId: string,
   startKey: string,
@@ -142,13 +143,19 @@ export function watchPlannerItemsInRange(
   const q = query(
     itemsCol,
     where('classId', '==', classId),
-    where('date', '>=', startKey),
-    where('date', '<=', endKey),
     where('deleted', '==', false),
-    orderBy('date', 'asc')
+    orderBy('date', 'asc'),
+    limit(500)
   );
   return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerItem));
+    const items = snap.docs
+      .map((d) => ({ id: d.id, ...d.data() }) as PlannerItem)
+      .filter((item) => {
+        const effectiveDate = item.dueDate || item.date;
+        return effectiveDate >= startKey && effectiveDate <= endKey;
+      })
+      .sort((a, b) => (a.dueDate || a.date).localeCompare(b.dueDate || b.date));
+    cb(items);
   });
 }
 
@@ -167,7 +174,7 @@ export function watchMyCompletions(userId: string, cb: (map: Record<string, bool
 
 /** One-off fetch used by the search overlay (small class-sized dataset, so a client-side filter is fine). */
 export async function getAllActiveItemsOnce(classId: string): Promise<PlannerItem[]> {
-  const q = query(itemsCol, where('classId', '==', classId), where('deleted', '==', false));
+  const q = query(itemsCol, where('classId', '==', classId), where('deleted', '==', false), limit(500));
   const snap = await getDocs(q);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerItem);
 }

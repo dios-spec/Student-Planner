@@ -34,11 +34,15 @@ export function relativeDayLabel(key: string): string {
 }
 
 export function daysLeftLabel(key: string): string {
-  const diff = differenceInCalendarDays(fromDateKey(key), new Date());
+  const diff = daysUntil(key);
   if (diff < 0) return 'Past due';
   if (diff === 0) return 'Today';
   if (diff === 1) return 'Tomorrow';
   return `${diff} days left`;
+}
+
+export function daysUntil(key: string): number {
+  return differenceInCalendarDays(fromDateKey(key), new Date());
 }
 
 export function relativeTime(date: Date): string {

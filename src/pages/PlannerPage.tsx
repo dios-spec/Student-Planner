@@ -1,5 +1,5 @@
-import { useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useEffect, useMemo, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Plus, Search, CalendarClock } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import DateHeader from '../components/planner/DateHeader';
@@ -22,19 +22,37 @@ import { setCompletion, setImportantForMe, softDeletePlannerItem, restorePlanner
 import { useMyImportant } from '../hooks/useMyImportant';
 import { CATEGORY_ORDER } from '../data/categories';
 import type { PlannerItem } from '../types';
+import ExamCountdowns from '../components/planner/ExamCountdowns';
+
+const DATE_KEY_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
 export default function PlannerPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const { user, profile } = useAuth();
   const { show } = useToast();
   const { activeClass } = useActiveClass();
-  const [dateKey, setDateKey] = useState(todayKey());
+  const requestedDate = searchParams.get('date');
+  const [dateKey, setDateKey] = useState(
+    requestedDate && DATE_KEY_PATTERN.test(requestedDate) ? requestedDate : todayKey()
+  );
   const { items, completions, loading } = usePlannerDay(activeClass, dateKey, user?.uid);
   const importantSet = useMyImportant(user?.uid);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlannerItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlannerItem | null>(null);
   const [searchOpen, setSearchOpen] = useState(false);
+
+  useEffect(() => {
+    if (requestedDate && DATE_KEY_PATTERN.test(requestedDate)) setDateKey(requestedDate);
+  }, [requestedDate]);
+
+  function changeDate(nextDate: string) {
+    setDateKey(nextDate);
+    const nextParams = new URLSearchParams(searchParams);
+    nextParams.set('date', nextDate);
+    setSearchParams(nextParams, { replace: true });
+  }
 
   const grouped = useMemo(() => {
     const map: Record<string, PlannerItem[]> = {};
@@ -92,7 +110,8 @@ export default function PlannerPage() {
 
       <div className="paper-texture space-y-5 px-4 pt-4">
         <ClassSelector />
-        <DateHeader dateKey={dateKey} onChange={setDateKey} />
+        <DateHeader dateKey={dateKey} onChange={changeDate} />
+        <ExamCountdowns />
 
         {loading ? (
           <PlannerSkeleton />

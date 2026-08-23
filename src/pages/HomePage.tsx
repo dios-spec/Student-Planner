@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Bell, MessageCircle, CalendarClock } from 'lucide-react';
+import { Plus, Bell, MessageCircle, CalendarClock, Search } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import StoryBar from '../components/home/StoryBar';
 import StoryViewer from '../components/home/StoryViewer';
@@ -21,6 +21,7 @@ import SmartDashboard from '../components/home/SmartDashboard';
 import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
 import { useSavedItems } from '../hooks/useSavedItems';
 import { saveItem, unsaveItem } from '../firebase/saved';
+import SearchOverlay from '../components/shared/SearchOverlay';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -45,6 +46,7 @@ export default function HomePage() {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [commentsPostId, setCommentsPostId] = useState<string | null>(null);
   const [shareContent, setShareContent] = useState<ShareContent | null>(null);
+  const [searchOpen, setSearchOpen] = useState(false);
 
   return (
     <div className="social-texture pb-24">
@@ -52,6 +54,9 @@ export default function HomePage() {
         title="Home"
         right={
           <div className="flex items-center gap-1">
+            <button onClick={() => setSearchOpen(true)} aria-label="Search app" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
+              <Search size={20} />
+            </button>
             <button onClick={() => navigate('/upcoming')} aria-label="Upcoming" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
               <CalendarClock size={20} />
             </button>
@@ -125,6 +130,7 @@ export default function HomePage() {
       <ShareSheet content={shareContent} onClose={() => setShareContent(null)} />
       <ProfileView uid={viewUid} onClose={() => setViewUid(null)} onImageClick={setPreviewUrl} onStartDM={(id) => { setViewUid(null); navigate(`/messages?open=${id}`); }} />
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
+      <SearchOverlay open={searchOpen} onClose={() => setSearchOpen(false)} />
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, limit, where } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, getDocs, onSnapshot, orderBy, query, serverTimestamp, limit, where } from 'firebase/firestore';
 import { db } from './config';
 import type { Announcement } from '../types';
 import { pushToClass } from './notifications';
@@ -41,6 +41,13 @@ export function watchAnnouncements(classId: string, cb: (items: Announcement[]) 
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement));
   });
+}
+
+/** Bounded class-scoped read used by app-wide search. */
+export async function getAnnouncementsOnce(classId: string): Promise<Announcement[]> {
+  const q = query(col, where('classId', '==', classId), orderBy('createdAt', 'desc'), limit(100));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement);
 }
 
 /** Author-only delete. */

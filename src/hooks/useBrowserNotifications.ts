@@ -8,7 +8,7 @@ const CATEGORY_MAP: Record<string, string> = {
   reply: 'reply', comment: 'comment',
   postLike: 'postLike', reelLike: 'reelLike', storyLike: 'storyLike',
   incomingCall: 'calls', missedCall: 'missedCall',
-  homework: 'homework', exam: 'exam', announcement: 'announcement',
+  homework: 'homework', exam: 'exam', announcement: 'announcement', studyHelp: 'studyHelp',
   groupInvite: 'groupEvents', adminPromote: 'groupEvents', addedToGroup: 'groupEvents',
 };
 
