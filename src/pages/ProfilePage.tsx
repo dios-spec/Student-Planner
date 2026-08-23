@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Megaphone, Info, Grid3x3, Bookmark } from 'lucide-react';
+import { Pencil, Megaphone, Info, Grid3x3, Bookmark, Bell } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
@@ -110,6 +110,17 @@ export default function ProfilePage() {
           <div>
             <p className="text-sm font-semibold text-ink">Saved</p>
             <p className="text-xs text-ink-soft">Posts, reels, messages, and study material you've saved</p>
+          </div>
+        </button>
+
+        <button
+          onClick={() => navigate('/settings/notifications')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
+        >
+          <Bell size={18} className="text-accent" />
+          <div>
+            <p className="text-sm font-semibold text-ink">Notification Settings</p>
+            <p className="text-xs text-ink-soft">Choose what notifies you, and set Quiet Hours</p>
           </div>
         </button>
 

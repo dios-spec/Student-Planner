@@ -55,6 +55,35 @@ export interface CompletionRecord {
   updatedAt: Timestamp | null;
 }
 
+export interface QuietHours {
+  enabled: boolean;
+  start: string; // "HH:MM", 24h, local to the user's own timezone
+  end: string;
+  allowCalls: boolean;
+  allowUrgent: boolean; // homework/exam/announcement bypass the quiet window
+}
+
+export interface NotificationSettings {
+  dm?: boolean;
+  groupMessage?: boolean;
+  classMessage?: boolean;
+  reply?: boolean;
+  comment?: boolean; // combined: post/reel/story comments
+  postLike?: boolean;
+  reelLike?: boolean;
+  storyLike?: boolean;
+  calls?: boolean;
+  missedCall?: boolean;
+  homework?: boolean;
+  exam?: boolean;
+  announcement?: boolean;
+  studyHelp?: boolean; // reserved -- no notification trigger exists yet
+  groupEvents?: boolean; // groupInvite/adminPromote/addedToGroup
+  sound?: boolean; // local: call ringtone tone+vibration together
+  vibration?: boolean; // reserved for future split from sound
+  quietHours?: QuietHours;
+}
+
 export interface StudentProfile {
   id: string; // == firebase uid
   displayName: string;
@@ -67,6 +96,8 @@ export interface StudentProfile {
   onboarded?: boolean;
   createdAt: Timestamp | null;
   lastSeen?: Timestamp | null;
+  notificationSettings?: NotificationSettings;
+  timezone?: string; // IANA, auto-detected client-side
 }
 
 export interface Reaction {
@@ -273,7 +304,7 @@ export type NotifType =
   | 'postLike'
   | 'classMessage'
   | 'classReaction'
-  | 'storyNew';
+  | 'storyNew' | 'reelLike' | 'storyLike';
 
 export interface AppNotification {
   id: string;

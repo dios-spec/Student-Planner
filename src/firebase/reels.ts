@@ -65,7 +65,7 @@ export async function toggleReelLike(reelId: string, uid: string, liked: boolean
       void pushNotification(
         {
           userId: reel.authorId,
-          type: 'comment',
+          type: 'reelLike',
           title: 'Someone liked your reel',
           body: reel.caption || 'Your reel got a new like',
           icon: reel.thumbUrl,

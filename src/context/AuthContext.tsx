@@ -1,7 +1,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from 'react';
 import type { User } from 'firebase/auth';
 import { ensureAnonymousUser } from '../firebase/config';
-import { ensureUserProfile, watchUserProfile, touchLastSeen } from '../firebase/users';
+import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
 
 const HEARTBEAT_MS = 60000;
 import type { StudentProfile } from '../types';
@@ -32,6 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         if (!seenBefore) setIsFirstVisit(true);
         await ensureUserProfile(fbUser.uid);
         touchLastSeen(fbUser.uid);
+        syncTimezone(fbUser.uid);
         unsubProfile = watchUserProfile(fbUser.uid, (p) => {
           setProfile(p);
           setLoading(false);

@@ -93,7 +93,7 @@ export async function toggleStoryLike(storyId: string, uid: string, liked: boole
       void pushNotification(
         {
           userId: story.authorId,
-          type: 'comment',
+          type: 'storyLike',
           title: 'Someone liked your story',
           body: 'Your story got a new like',
           icon: story.imageUrl,

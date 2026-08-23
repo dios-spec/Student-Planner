@@ -2,6 +2,7 @@
 import { Phone, PhoneOff } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { startRingtone, stopRingtone } from '../../utils/ringtone';
+import { useAuth } from '../../context/AuthContext';
 import type { CallDoc } from '../../types';
 
 /** Full-screen incoming-call UI with ringtone. Shown when the app is open. */
@@ -15,10 +16,13 @@ export default function IncomingCall({
   onDecline: () => void;
 }) {
   const isGroup = call.type === 'group';
+  const { profile } = useAuth();
+  const soundEnabled = profile?.notificationSettings?.sound !== false;
 
   useEffect(() => {
-    startRingtone();
+    if (soundEnabled) startRingtone();
     return () => stopRingtone();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

@@ -1,4 +1,5 @@
 import { adminApp, asStrings } from './_lib/firebaseAdmin.js';
+import { isWithinQuietHours } from './_lib/notificationGate.js';
 import { getFirestore, FieldValue, Timestamp } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 
@@ -50,7 +51,10 @@ export default async function handler(req, res) {
           createdAt: FieldValue.serverTimestamp(),
         });
 
-        if (tokens.length) {
+        const qh = user && user.notificationSettings && user.notificationSettings.quietHours;
+        const quiet = qh && qh.enabled && isWithinQuietHours(new Date(), user.timezone, qh.start, qh.end) && !qh.allowUrgent;
+
+        if (tokens.length && !quiet) {
           const data = asStrings({
             type: 'reminder',
             title: 'Reminder',

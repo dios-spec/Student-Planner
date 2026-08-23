@@ -2,6 +2,7 @@ import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { adminApp, asStrings } from './_lib/firebaseAdmin.js';
+import { checkPushAllowed } from './_lib/notificationGate.js';
 
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
@@ -47,6 +48,12 @@ export default async function handler(req, res) {
     if (!userSnap.exists) return res.status(200).json({ sent: 0, reason: 'no-user' });
 
     const user = userSnap.data() || {};
+
+    const gate = checkPushAllowed(user, notif.type);
+    if (!gate.allowed) {
+      return res.status(200).json({ sent: 0, reason: gate.reason });
+    }
+
     const tokens = [
       ...(Array.isArray(user.fcmTokens) ? user.fcmTokens : []),
       ...(typeof user.fcmToken === 'string' ? [user.fcmToken] : []),

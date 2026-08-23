@@ -58,6 +58,23 @@ export async function touchLastSeen(uid: string) {
   await updateDoc(doc(usersCol, uid), { lastSeen: serverTimestamp() }).catch(() => {});
 }
 
+/** Deep-merges into notificationSettings (setDoc+merge, NOT updateDoc --
+ * updateDoc would replace the whole nested map instead of merging keys). */
+export async function updateNotificationSettings(uid: string, patch: Record<string, unknown>) {
+  await setDoc(doc(usersCol, uid), { notificationSettings: patch }, { merge: true }).catch(() => {});
+}
+
+/** Silently syncs the browser's IANA timezone once per load -- never asked
+ * as a separate onboarding step, per the "auto-detected" requirement. */
+export async function syncTimezone(uid: string) {
+  try {
+    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (tz) await updateDoc(doc(usersCol, uid), { timezone: tz }).catch(() => {});
+  } catch {
+    // Intl unsupported -- server falls back to UTC.
+  }
+}
+
 export async function getAllProfilesOnce(): Promise<StudentProfile[]> {
   const snap = await getDocs(usersCol);
   return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudentProfile);
