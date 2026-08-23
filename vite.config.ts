@@ -4,42 +4,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
 export default defineConfig({
-  build: {
-    rolldownOptions: {
-      output: {
-        codeSplitting: {
-          minSize: 12_000,
-          maxSize: 320_000,
-          groups: [
-            {
-              name: 'react-core',
-              test: /node_modules[\\/](react|react-dom|react-router|react-router-dom)[\\/]/,
-              priority: 4,
-            },
-            {
-              name: 'firebase',
-              test: /node_modules[\\/](@firebase|firebase)[\\/]/,
-              priority: 3,
-              includeDependenciesRecursively: false,
-              maxSize: 300_000,
-            },
-            {
-              name: 'icons',
-              test: /node_modules[\\/]lucide-react[\\/]/,
-              priority: 3,
-              includeDependenciesRecursively: false,
-            },
-            {
-              name: 'date-utils',
-              test: /node_modules[\\/]date-fns[\\/]/,
-              priority: 3,
-              includeDependenciesRecursively: false,
-            },
-          ],
-        },
-      },
-    },
-  },
+
   plugins: [
     react(),
     tailwindcss(),
