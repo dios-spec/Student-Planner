@@ -18,7 +18,8 @@ import { useToast } from '../context/ToastContext';
 import { todayKey } from '../utils/date';
 import { useActiveClass } from '../context/ClassContext';
 import ClassSelector from '../components/layout/ClassSelector';
-import { setCompletion, softDeletePlannerItem, restorePlannerItem } from '../firebase/planner';
+import { setCompletion, setImportantForMe, softDeletePlannerItem, restorePlannerItem } from '../firebase/planner';
+import { useMyImportant } from '../hooks/useMyImportant';
 import { CATEGORY_ORDER } from '../data/categories';
 import type { PlannerItem } from '../types';
 
@@ -29,6 +30,7 @@ export default function PlannerPage() {
   const { activeClass } = useActiveClass();
   const [dateKey, setDateKey] = useState(todayKey());
   const { items, completions, loading } = usePlannerDay(activeClass, dateKey, user?.uid);
+  const importantSet = useMyImportant(user?.uid);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [editingItem, setEditingItem] = useState<PlannerItem | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<PlannerItem | null>(null);
@@ -113,6 +115,8 @@ export default function PlannerPage() {
                 onToggleDone={(id, next) => user && setCompletion(user.uid, id, next)}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
+                importantSet={importantSet}
+                onToggleImportant={(id) => user && setImportantForMe(user.uid, id, !importantSet.has(id))}
               />
             ))}
           </>

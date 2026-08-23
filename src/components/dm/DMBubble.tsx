@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { SmilePlus, Reply, Trash2, Pin } from 'lucide-react';
+import { SmilePlus, Reply, Trash2, Pin, Pencil, Bookmark } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import EmojiPicker from '../chat/EmojiPicker';
 import ReactionRow from '../chat/ReactionRow';
@@ -25,15 +25,20 @@ interface DMBubbleProps {
   receiptLabel?: string;
   onVotePoll: (optionId: string) => void;
   onClosePoll: () => void;
+  onEditMessage: (newText: string) => void;
+  saved: boolean;
+  onToggleSave: () => void;
 }
 
 export default function DMBubble({
-  message, isMine, myUid, isGroup,
-  onReact, onReply, onDelete, onImageClick, onOpenShared, onOpenProfile,
-  pinned, onTogglePin, receiptLabel, onVotePoll, onClosePoll,
+  message, isMine, myUid, isGroup, onReact, onReply, onDelete, onImageClick, onOpenShared, onOpenProfile,
+  pinned, onTogglePin, receiptLabel, onVotePoll, onClosePoll, onEditMessage, saved, onToggleSave,
 }: DMBubbleProps) {
   const [picker, setPicker] = useState(false);
+  const [editing, setEditing] = useState(false);
+  const [editText, setEditText] = useState('');
   const created = message.createdAt?.toDate ? message.createdAt.toDate() : new Date();
+  const canEdit = isMine && message.kind === 'text';
 
   if (message.deleted) {
     return (
@@ -64,59 +69,66 @@ export default function DMBubble({
           </div>
         )}
 
-        <div
-          className={`relative rounded-2xl px-3 py-2 text-sm ${
-            isMine ? 'rounded-tr-sm bg-accent text-white' : 'rounded-tl-sm bg-surface text-ink'
-          } ${message.kind === 'voice' ? 'min-w-[180px]' : ''}`}
-        >
+        <div className={`relative rounded-2xl px-3 py-2 text-sm ${isMine ? 'rounded-tr-sm bg-accent text-white' : 'rounded-tl-sm bg-surface text-ink'} ${message.kind === 'voice' ? 'min-w-[180px]' : ''}`}>
           {message.kind === 'image' && message.imageUrl && (
-            <img
-              src={message.imageUrl}
-              alt="Shared"
-              onClick={() => onImageClick(message.imageUrl!)}
-              className="mb-1 max-h-60 w-full cursor-pointer rounded-xl object-cover"
-            />
+            <img src={message.imageUrl} alt="Shared" onClick={() => onImageClick(message.imageUrl!)} className="mb-1 max-h-60 w-full cursor-pointer rounded-xl object-cover" />
           )}
-          {message.kind === 'voice' && message.audioUrl && (
-            <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />
-          )}
+          {message.kind === 'voice' && message.audioUrl && <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />}
           {(message.kind === 'sharedPost' || message.kind === 'sharedReel' || message.kind === 'sharedStory') && message.shared && (
             <SharedPreview shared={message.shared} mine={isMine} onOpen={() => onOpenShared(message.shared!)} />
           )}
           {message.kind === 'poll' && message.poll && (
             <PollCard poll={message.poll} myUid={myUid} mine={isMine} onVote={onVotePoll} onClose={message.poll.createdBy === myUid ? onClosePoll : undefined} />
           )}
-          {message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>}
+          {editing ? (
+            <div className="space-y-1.5">
+              <textarea
+                value={editText}
+                onChange={(e) => setEditText(e.target.value.slice(0, 2000))}
+                rows={2}
+                autoFocus
+                className={`w-full resize-none rounded-lg border px-2 py-1.5 text-sm outline-none ${isMine ? 'border-white/30 bg-white/10 text-white' : 'border-line bg-paper text-ink'}`}
+              />
+              <div className="flex justify-end gap-2">
+                <button onClick={() => setEditing(false)} className={`rounded-full px-3 py-1 text-xs font-medium ${isMine ? 'text-white/80' : 'text-ink-soft'}`}>Cancel</button>
+                <button
+                  onClick={() => { if (editText.trim()) { onEditMessage(editText.trim()); setEditing(false); } }}
+                  disabled={!editText.trim()}
+                  className={`rounded-full px-3 py-1 text-xs font-semibold disabled:opacity-50 ${isMine ? 'bg-white text-accent' : 'bg-accent text-white'}`}
+                >
+                  Save
+                </button>
+              </div>
+            </div>
+          ) : (
+            message.text && <p className="whitespace-pre-wrap break-words">{message.text}</p>
+          )}
         </div>
 
         <div className="mt-0.5 flex items-center gap-2 px-1">
-          <span className="text-[11px] text-ink-soft">{relativeTime(created)}</span>
+          <span className="text-[11px] text-ink-soft">{relativeTime(created)}{message.edited ? ' · edited' : ''}</span>
           {receiptLabel && <span className="text-[11px] font-medium text-accent">{receiptLabel}</span>}
-          <button onClick={() => setPicker((o) => !o)} className="text-ink-soft hover:text-accent">
-            <SmilePlus size={14} />
-          </button>
-          <button onClick={onReply} className="text-ink-soft hover:text-accent">
-            <Reply size={14} />
-          </button>
+          <button onClick={() => setPicker((o) => !o)} className="text-ink-soft hover:text-accent"><SmilePlus size={14} /></button>
+          <button onClick={onReply} className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
           <button onClick={onTogglePin} aria-label={pinned ? 'Unpin' : 'Pin'} className={pinned ? 'text-accent' : 'text-ink-soft hover:text-accent'}>
             <Pin size={13} className={pinned ? 'fill-accent' : ''} />
           </button>
-          {isMine && (
-            <button onClick={onDelete} className="text-ink-soft hover:text-coral">
-              <Trash2 size={13} />
+          <button onClick={onToggleSave} aria-label={saved ? 'Unsave' : 'Save'} className={saved ? 'text-accent' : 'text-ink-soft hover:text-accent'}>
+            <Bookmark size={13} className={saved ? 'fill-current' : ''} />
+          </button>
+          {canEdit && (
+            <button onClick={() => { setEditText(message.text || ''); setEditing(true); }} className="text-ink-soft hover:text-accent">
+              <Pencil size={13} />
             </button>
+          )}
+          {isMine && (
+            <button onClick={onDelete} className="text-ink-soft hover:text-coral"><Trash2 size={13} /></button>
           )}
         </div>
 
         {picker && (
           <div className="mt-1">
-            <EmojiPicker
-              onPick={(emoji) => {
-                const already = (message.reactions?.[emoji] || []).includes(myUid);
-                onReact(emoji, already);
-                setPicker(false);
-              }}
-            />
+            <EmojiPicker onPick={(emoji) => { const already = (message.reactions?.[emoji] || []).includes(myUid); onReact(emoji, already); setPicker(false); }} />
           </div>
         )}
 

@@ -12,11 +12,16 @@ import { useReels } from '../hooks/useReels';
 import { deleteReel } from '../firebase/reels';
 import type { Reel } from '../types';
 import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
+import { useSavedItems } from '../hooks/useSavedItems';
+import { saveItem, unsaveItem } from '../firebase/saved';
+import { useAuth } from '../context/AuthContext';
 
 export default function ReelsPage() {
   const navigate = useNavigate();
   const { reels, loading } = useReels();
   const profiles = useLiveProfiles((reels || []).map((r) => r.authorId));
+  const { user } = useAuth();
+  const { isSaved } = useSavedItems(user?.uid);
   const [activeIdx, setActiveIdx] = useState(0);
   const [muted, setMuted] = useState(true);
   const [uploadOpen, setUploadOpen] = useState(false);
@@ -84,6 +89,10 @@ export default function ReelsPage() {
               onOpenComments={setCommentsFor}
               onShare={(r) => setShareContent({ kind: 'reel', id: r.id, thumbUrl: r.thumbUrl, caption: r.caption, authorName: r.authorName })}
               onDelete={setDeleteTarget}
+              saved={isSaved('reel', reel.id)}
+              onToggleSave={() => user && (isSaved('reel', reel.id)
+                ? unsaveItem(user.uid, 'reel', reel.id)
+                : saveItem({ userId: user.uid, type: 'reel', refId: reel.id, title: reel.caption || 'Reel', imageUrl: reel.thumbUrl, authorName: reel.authorName }))}
             />
           </div>
         ))}

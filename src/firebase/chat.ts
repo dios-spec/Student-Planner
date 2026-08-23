@@ -115,6 +115,10 @@ export async function deleteOwnMessage(messageId: string) {
   await updateDoc(doc(messagesCol, messageId), { deleted: true, text: '', imageUrl: '' });
 }
 
+export async function editMessage(messageId: string, newText: string) {
+  await updateDoc(doc(messagesCol, messageId), { text: newText.trim().slice(0, 500), edited: true });
+}
+
 export async function reportMessage(messageId: string, reporterId: string) {
   await addDoc(collection(db, 'reports'), {
     messageId,

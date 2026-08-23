@@ -12,7 +12,9 @@ import { useMessages } from '../hooks/useMessages';
 import { useActiveStudentCount } from '../hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage, sendPoll, voteOnPoll, closePoll } from '../firebase/chat';
+import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage, sendPoll, voteOnPoll, closePoll, editMessage } from '../firebase/chat';
+import { useSavedItems } from '../hooks/useSavedItems';
+import { saveItem, unsaveItem } from '../firebase/saved';
 import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
 import { pinClassMessage, unpinClassMessage } from '../firebase/pins';
 import { useClassPins } from '../hooks/useClassPins';
@@ -33,6 +35,7 @@ export default function ChatPage() {
   const activeCount = useActiveStudentCount();
   const pinned = useClassPins();
   const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
+  const { isSaved } = useSavedItems(user?.uid);
   const typingNames = useClassTyping(user?.uid);
   const notifyTyping = useTypingThrottle((isTyping) => {
     if (user && profile) setClassTyping(user.uid, profile.displayName, isTyping);
@@ -172,6 +175,11 @@ export default function ChatPage() {
             onTogglePin={() => handleTogglePin(m)}
             onVotePoll={(optionId) => voteOnPoll(m.id, optionId, user.uid)}
             onClosePoll={() => closePoll(m.id)}
+            onEditMessage={(newText) => editMessage(m.id, newText)}
+            saved={isSaved('message', m.id)}
+            onToggleSave={() => isSaved('message', m.id)
+              ? unsaveItem(user.uid, 'message', m.id)
+              : saveItem({ userId: user.uid, type: 'message', refId: m.id, title: m.text || 'Message', imageUrl: m.imageUrl, authorName: m.senderName })}
           />
         ))}
         <div ref={bottomRef} />

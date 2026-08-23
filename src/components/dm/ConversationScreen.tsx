@@ -11,7 +11,9 @@ import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCall } from '../../context/CallContext';
 import { useActiveConversation } from '../../context/ActiveConversationContext';
-import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll } from '../../firebase/dm';
+import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll, editDMMessage } from '../../firebase/dm';
+import { useSavedItems } from '../../hooks/useSavedItems';
+import { saveItem, unsaveItem } from '../../firebase/saved';
 import { markConversationRead } from '../../firebase/conversations';
 import { pinDMMessage, unpinDMMessage } from '../../firebase/pins';
 import { setConversationTyping, typingNamesFrom } from '../../firebase/typing';
@@ -43,6 +45,7 @@ export default function ConversationScreen({
   const { setActiveConversationId } = useActiveConversation();
   const { messages, loading } = useDMMessages(conversation.id);
   const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
+  const { isSaved } = useSavedItems(user?.uid);
   const typingNames = typingNamesFrom(conversation.typing, user?.uid || '');
   const notifyTyping = useTypingThrottle((isTyping) => {
     if (user && profile) setConversationTyping(conversation.id, user.uid, profile.displayName, isTyping);
@@ -239,6 +242,11 @@ export default function ConversationScreen({
             receiptLabel={m.senderId === user.uid ? receiptLabelFor(m) : undefined}
             onVotePoll={(optionId) => voteOnDMPoll(conversation.id, m.id, optionId, user.uid)}
             onClosePoll={() => closeDMPoll(conversation.id, m.id)}
+            onEditMessage={(newText) => editDMMessage(conversation.id, m.id, newText)}
+            saved={isSaved('dmMessage', m.id)}
+            onToggleSave={() => isSaved('dmMessage', m.id)
+              ? unsaveItem(user.uid, 'dmMessage', m.id)
+              : saveItem({ userId: user.uid, type: 'dmMessage', refId: m.id, conversationId: conversation.id, title: m.text || 'Message', imageUrl: m.imageUrl, authorName: m.senderName })}
           />
         ))}
         <div ref={bottomRef} />

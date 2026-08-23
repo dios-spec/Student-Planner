@@ -19,6 +19,8 @@ import { useNotifications } from '../hooks/useNotifications';
 import { useAuth } from '../context/AuthContext';
 import SmartDashboard from '../components/home/SmartDashboard';
 import { useLiveProfiles, liveName, liveAvatar } from '../hooks/useLiveProfiles';
+import { useSavedItems } from '../hooks/useSavedItems';
+import { saveItem, unsaveItem } from '../firebase/saved';
 
 export default function HomePage() {
   const navigate = useNavigate();
@@ -35,6 +37,7 @@ export default function HomePage() {
     authorName: liveName(profiles, g.authorId, g.authorName),
     authorAvatar: liveAvatar(profiles, g.authorId, g.authorAvatar),
   }));
+  const { isSaved } = useSavedItems(user?.uid);
   const [storyStart, setStoryStart] = useState<number | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
   const [createPostOpen, setCreatePostOpen] = useState(false);
@@ -101,6 +104,10 @@ export default function HomePage() {
             onImageClick={setPreviewUrl}
             onOpenComments={setCommentsPostId}
             onShare={(p) => setShareContent({ kind: 'post', id: p.id, imageUrl: p.imageUrl, caption: p.caption, authorName: p.authorName })}
+            saved={isSaved('post', post.id)}
+            onToggleSave={() => user && (isSaved('post', post.id)
+              ? unsaveItem(user.uid, 'post', post.id)
+              : saveItem({ userId: user.uid, type: 'post', refId: post.id, title: post.caption || 'Post', imageUrl: post.imageUrl, authorName: post.authorName }))}
           />
         ))}
       </div>

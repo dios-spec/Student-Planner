@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Pencil, Megaphone, Info, Grid3x3 } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Pencil, Megaphone, Info, Grid3x3, Bookmark } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
@@ -17,6 +18,7 @@ import { Smile } from 'lucide-react';
 import { CLASS_COLORS, isClassId } from '../data/classes';
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { posts } = useUserPosts(user?.uid);
   const [editOpen, setEditOpen] = useState(false);
@@ -99,6 +101,17 @@ export default function ProfilePage() {
           <h3 className="mb-2 font-display text-sm font-semibold uppercase tracking-wide text-ink-soft">Appearance</h3>
           <ThemeToggle />
         </div>
+
+        <button
+          onClick={() => navigate('/saved')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
+        >
+          <Bookmark size={18} className="text-accent" />
+          <div>
+            <p className="text-sm font-semibold text-ink">Saved</p>
+            <p className="text-xs text-ink-soft">Posts, reels, messages, and study material you've saved</p>
+          </div>
+        </button>
 
         <button
           onClick={() => setAnnounceOpen(true)}

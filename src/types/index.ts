@@ -51,6 +51,7 @@ export interface CompletionRecord {
   userId: string;
   itemId: string;
   done: boolean;
+  important?: boolean; // personal "pin for me" marker, independent of the shared task
   updatedAt: Timestamp | null;
 }
 
@@ -105,6 +106,7 @@ export interface ChatMessage {
   createdAt: Timestamp | null;
   deleted?: boolean;
   poll?: Poll;
+  edited?: boolean;
 }
 
 export interface Announcement {
@@ -241,6 +243,7 @@ export interface DMMessage {
   createdAt: Timestamp | null;
   deleted?: boolean;
   poll?: Poll;
+  edited?: boolean;
 }
 
 export interface BlockEntry {
@@ -334,5 +337,19 @@ export interface Reminder {
   itemTitle: string;
   remindAt: Timestamp | null;
   sent: boolean;
+  createdAt: Timestamp | null;
+}
+
+export type SavedItemType = 'message' | 'dmMessage' | 'post' | 'reel' | 'study';
+
+export interface SavedItem {
+  id: string;
+  userId: string;
+  type: SavedItemType;
+  refId: string;
+  conversationId?: string;
+  title: string;
+  imageUrl?: string;
+  authorName?: string;
   createdAt: Timestamp | null;
 }

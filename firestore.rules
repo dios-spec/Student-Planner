@@ -128,7 +128,7 @@ service cloud.firestore {
           && request.resource.data.senderId == resource.data.senderId
           && request.resource.data.createdAt == resource.data.createdAt
           && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions']))
+               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions', 'edited']))
         ||
         request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
         ||
@@ -277,6 +277,14 @@ service cloud.firestore {
     match /timetable/{classId} {
       allow read: if isSignedIn();
       allow write: if isSignedIn() && validClass(classId);
+    }
+
+    // ---- Saved items: fully private bookmarks, owner-only ----
+    match /saved/{id} {
+      allow read: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if false;
+      allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
     // ---- Reminders: fully private to the owner; only the server (Admin SDK) marks them sent ----

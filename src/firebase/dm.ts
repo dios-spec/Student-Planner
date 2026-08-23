@@ -168,6 +168,10 @@ export async function toggleDMReaction(
   }
 }
 
+export async function editDMMessage(conversationId: string, messageId: string, newText: string) {
+  await updateDoc(doc(msgCol(conversationId), messageId), { text: newText.trim().slice(0, 2000), edited: true });
+}
+
 export async function deleteDMMessage(conversationId: string, messageId: string) {
   await updateDoc(doc(msgCol(conversationId), messageId), {
     deleted: true,

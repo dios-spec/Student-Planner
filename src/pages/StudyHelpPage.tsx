@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react';
-import { Plus, Search, Trash2, Download } from 'lucide-react';
+import { Plus, Search, Trash2, Download, Bookmark } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import ClassSelector from '../components/layout/ClassSelector';
 import Avatar from '../components/shared/Avatar';
@@ -13,6 +13,8 @@ import { deleteStudyMaterial } from '../firebase/study';
 import { subjectById, DEFAULT_SUBJECTS } from '../data/subjects';
 import { useActiveClass } from '../context/ClassContext';
 import { useAuth } from '../context/AuthContext';
+import { useSavedItems } from '../hooks/useSavedItems';
+import { saveItem, unsaveItem } from '../firebase/saved';
 import { relativeTime } from '../utils/date';
 import type { StudyMaterial } from '../types';
 
@@ -25,6 +27,7 @@ export default function StudyHelpPage() {
   const [subjectFilter, setSubjectFilter] = useState<string | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<StudyMaterial | null>(null);
+  const { isSaved } = useSavedItems(user?.uid);
 
   const filtered = useMemo(() => {
     let list = materials || [];
@@ -124,6 +127,15 @@ export default function StudyHelpPage() {
                             {m.createdAt?.toDate ? relativeTime(m.createdAt.toDate()) : ''}
                           </span>
                           <div className="flex items-center gap-1.5">
+                            <button
+                              onClick={() => user && (isSaved('study', m.id)
+                                ? unsaveItem(user.uid, 'study', m.id)
+                                : saveItem({ userId: user.uid, type: 'study', refId: m.id, title: m.title, imageUrl: m.imageUrl, authorName: m.uploaderName }))}
+                              aria-label={isSaved('study', m.id) ? 'Unsave' : 'Save'}
+                              className={isSaved('study', m.id) ? 'text-accent' : 'text-ink-soft hover:text-accent'}
+                            >
+                              <Bookmark size={13} className={isSaved('study', m.id) ? 'fill-current' : ''} />
+                            </button>
                             <a
                               href={m.imageUrl}
                               target="_blank"

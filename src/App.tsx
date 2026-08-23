@@ -25,6 +25,7 @@ const MessagesPage = lazy(() => import('./pages/MessagesPage'));
 const ProfilePage = lazy(() => import('./pages/ProfilePage'));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TimetablePage = lazy(() => import('./pages/TimetablePage'));
+const SavedPage = lazy(() => import('./pages/SavedPage'));
 
 function PageFallback() {
   return (
@@ -79,6 +80,7 @@ function AppShell() {
               <Route path="/messages" element={<MessagesPage />} />
               <Route path="/notifications" element={<NotificationsPage />} />
               <Route path="/timetable" element={<TimetablePage />} />
+              <Route path="/saved" element={<SavedPage />} />
               <Route path="/profile" element={<ProfilePage />} />
             </Routes>
           </Suspense>

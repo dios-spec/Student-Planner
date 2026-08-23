@@ -182,3 +182,14 @@ export async function setCompletion(userId: string, itemId: string, done: boolea
     { merge: true }
   );
 }
+
+/** Personal "pin for me" marker -- merges onto the same per-user completion
+ * doc without touching `done`, so it never changes the shared task. */
+export async function setImportantForMe(userId: string, itemId: string, important: boolean) {
+  const id = `${userId}_${itemId}`;
+  await setDoc(
+    doc(completionCol, id),
+    { userId, itemId, important, updatedAt: serverTimestamp() },
+    { merge: true }
+  );
+}

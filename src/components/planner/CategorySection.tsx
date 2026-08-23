@@ -12,16 +12,12 @@ interface CategorySectionProps {
   onEdit: (item: PlannerItem) => void;
   onDelete: (item: PlannerItem) => void;
   emptyLabel?: string;
+  importantSet?: Set<string>;
+  onToggleImportant?: (itemId: string) => void;
 }
 
 export default function CategorySection({
-  category,
-  items,
-  completions,
-  onToggleDone,
-  onEdit,
-  onDelete,
-  emptyLabel,
+  category, items, completions, onToggleDone, onEdit, onDelete, emptyLabel, importantSet, onToggleImportant,
 }: CategorySectionProps) {
   const meta = CATEGORY_META[category];
   const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[meta.icon] || Icons.BookMarked;
@@ -33,9 +29,7 @@ export default function CategorySection({
     <section>
       <div className="mb-2 flex items-center gap-2 px-1">
         <Icon size={17} className="text-ink-soft" />
-        <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-ink-soft">
-          {meta.plural}
-        </h3>
+        <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-ink-soft">{meta.plural}</h3>
       </div>
       {items.length === 0 ? (
         <EmptyState emoji="🎉" title={emptyLabel || 'Nothing here'} />
@@ -50,6 +44,8 @@ export default function CategorySection({
               onEdit={() => onEdit(item)}
               onDelete={() => onDelete(item)}
               showCheckbox={showCheckbox}
+              important={importantSet ? importantSet.has(item.id) : false}
+              onToggleImportant={onToggleImportant ? () => onToggleImportant(item.id) : undefined}
             />
           ))}
         </div>
