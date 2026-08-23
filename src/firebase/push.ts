@@ -1,13 +1,18 @@
 import { getMessaging, getToken, isSupported } from 'firebase/messaging';
-import { arrayUnion, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import {
+  arrayUnion,
+  deleteField,
+  doc,
+  serverTimestamp,
+  setDoc,
+  updateDoc,
+} from 'firebase/firestore';
 import { db } from './config';
 
-let messaging: ReturnType<typeof getMessaging> | null = null;
 const PUSH_SERVICE_WORKER_SCOPE = '/firebase-cloud-messaging-push-scope';
 
 export async function initPush(uid: string): Promise<void> {
   const supported = await isSupported().catch(() => false);
-  console.log('[PUSH] support=', supported);
 
   if (!supported) {
     console.warn('[PUSH] Firebase Messaging is not supported by this browser/device');
@@ -19,10 +24,7 @@ export async function initPush(uid: string): Promise<void> {
     return;
   }
 
-  console.log('[PUSH] permission=', Notification.permission);
-
   if (Notification.permission !== 'granted') {
-    console.warn('[PUSH] permission is not granted');
     return;
   }
 
@@ -30,13 +32,13 @@ export async function initPush(uid: string): Promise<void> {
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     if (!vapidKey) throw new Error('VITE_FIREBASE_VAPID_KEY is missing');
 
-    // Keep Firebase push on its own scope so it cannot replace the PWA's root service worker.
+    // Keep Firebase push on its own scope so it cannot replace the PWA root worker.
     const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
       scope: PUSH_SERVICE_WORKER_SCOPE,
     });
     await registration.update().catch(() => {});
 
-    messaging = getMessaging();
+    const messaging = getMessaging();
 
     const token = await getToken(messaging, {
       vapidKey,
@@ -48,17 +50,24 @@ export async function initPush(uid: string): Promise<void> {
       return;
     }
 
-    await updateDoc(doc(db, 'users', uid), {
-      fcmToken: token,
-      fcmTokens: arrayUnion(token),
-      pushUpdatedAt: serverTimestamp(),
-    });
+    // Push tokens are device credentials, not profile data. Keep them in a
+    // private owner-only document instead of the publicly readable user profile.
+    await setDoc(
+      doc(db, 'pushDevices', uid),
+      {
+        fcmToken: token,
+        fcmTokens: arrayUnion(token),
+        pushUpdatedAt: serverTimestamp(),
+      },
+      { merge: true }
+    );
 
-    console.log('[PUSH] device registered', {
-      uid,
-      serviceWorkerScope: registration.scope,
-      tokenLength: token.length,
-    });
+    // Remove legacy public-profile token fields once the private copy is safe.
+    await updateDoc(doc(db, 'users', uid), {
+      fcmToken: deleteField(),
+      fcmTokens: deleteField(),
+      pushUpdatedAt: deleteField(),
+    }).catch(() => {});
   } catch (err) {
     console.warn('[PUSH] registration failed', err);
   }

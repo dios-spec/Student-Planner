@@ -50,7 +50,6 @@ async function requestServerPush(notificationId: string, senderUid: string) {
     });
 
     const result = await response.json().catch(() => ({}));
-    console.log('[PUSH] server result', response.status, result);
 
     if (!response.ok) {
       console.warn('[PUSH] server rejected delivery', response.status, result);

@@ -35,7 +35,11 @@ export default async function handler(req, res) {
       try {
         const userSnap = await db.collection('users').doc(r.userId).get();
         const user = userSnap.exists ? userSnap.data() : null;
+        const pushDeviceSnap = await db.collection('pushDevices').doc(r.userId).get();
+        const pushDevice = pushDeviceSnap.exists ? (pushDeviceSnap.data() || {}) : {};
         const tokens = []
+          .concat(Array.isArray(pushDevice && pushDevice.fcmTokens) ? pushDevice.fcmTokens : [])
+          .concat(typeof (pushDevice && pushDevice.fcmToken) === 'string' ? [pushDevice.fcmToken] : [])
           .concat(Array.isArray(user && user.fcmTokens) ? user.fcmTokens : [])
           .concat(typeof (user && user.fcmToken) === 'string' ? [user.fcmToken] : [])
           .filter((v, i, a) => typeof v === 'string' && v && a.indexOf(v) === i);

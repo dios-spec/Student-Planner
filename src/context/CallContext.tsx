@@ -114,18 +114,12 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   const startCall = useCallback(async (conversation: Conversation, caller: StudentProfile) => {
     if (!user) throw new Error('Cannot start call while signed out');
-
-    console.log('[CALL] Starting call as Firebase UID:', user.uid);
-
-    const createdCall = await startCallSvc(
+const createdCall = await startCallSvc(
       conversation,
       caller,
       user.uid
     );
-
-    console.log('[CALL] Created Firestore call:', createdCall.id);
-
-    // Open call UI immediately.
+// Open call UI immediately.
     // Firestore listener will replace this with the server version.
     setActiveCall(createdCall);
     setActiveCallId(createdCall.id);

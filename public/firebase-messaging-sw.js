@@ -41,7 +41,15 @@ self.addEventListener('notificationclick', (event) => {
   const action = event.action || '';
   const route = d.route || '/';
 
-  const target = new URL(route, self.location.origin);
+  let target;
+  try {
+    const candidate = new URL(route, self.location.origin);
+    target = candidate.origin === self.location.origin
+      ? candidate
+      : new URL('/', self.location.origin);
+  } catch {
+    target = new URL('/', self.location.origin);
+  }
 
   if (d.type === 'incomingCall' && d.callId && (action === 'accept' || action === 'decline')) {
     target.searchParams.set('callAction', action);

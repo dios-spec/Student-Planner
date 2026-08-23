@@ -28,9 +28,7 @@ export async function startCall(
   caller: StudentProfile,
   callerUid: string
 ): Promise<CallDoc> {
-  console.log('[CALL] Firebase project:', db.app.options.projectId);
-
-  const participants: CallDoc['participants'] = {};
+const participants: CallDoc['participants'] = {};
 
   conversation.memberIds.forEach((id) => {
     const info = conversation.members[id];
@@ -58,10 +56,7 @@ export async function startCall(
   });
 
   const ref = await addDoc(callsCol, payload);
-
-  console.log('[CALL] Firestore addDoc resolved:', ref.id);
-
-  void pushToMany(
+void pushToMany(
     conversation.memberIds.filter((id) => id !== callerUid),
     {
       type: 'incomingCall',
@@ -86,21 +81,11 @@ export async function startCall(
 }
 
 export function watchCall(callId: string, cb: (c: CallDoc | null) => void) {
-  console.log('[CALL] watchCall subscribing:', callId);
-
-  return onSnapshot(
+return onSnapshot(
     doc(callsCol, callId),
 
     (snap) => {
-      console.log(
-        '[CALL] watchCall snapshot:',
-        callId,
-        'exists=',
-        snap.exists(),
-        snap.exists() ? snap.data()?.status : null
-      );
-
-      cb(
+cb(
         snap.exists()
           ? ({ id: snap.id, ...snap.data() } as CallDoc)
           : null
@@ -127,7 +112,7 @@ export function watchIncomingCalls(uid: string, cb: (call: CallDoc | null) => vo
       const now = Date.now();
 
       const toMs = (call: CallDoc) => {
-        const created = (call as any).createdAt;
+        const created = call.createdAt;
 
         if (typeof created?.toMillis === 'function') {
           return created.toMillis();

@@ -32,6 +32,23 @@ service cloud.firestore {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['role', 'teacherVerifiedAt', 'teacherVerifiedBy', 'teacherRoleVersion', 'roleUpdatedAt']);
     }
+    function validMediaUrl(value) {
+      return value == ''
+        || value.matches('https://res\\.cloudinary\\.com/.*')
+        || value.matches('https://firebasestorage\\.googleapis\\.com/.*');
+    }
+    function validNotificationRoute(route) {
+      return route == '/' || route.matches('/[A-Za-z0-9].*');
+    }
+    function targetIsStudent(uid) {
+      return exists(/databases/$(database)/documents/users/$(uid))
+        && get(/databases/$(database)/documents/users/$(uid)).data.get('role', 'student') != 'teacher';
+    }
+    function publicPushFieldsUnchangedOrRemoved() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
+        || !request.resource.data.keys().hasAny(['fcmToken', 'fcmTokens', 'pushUpdatedAt']);
+    }
 
     // ---- Users / profiles ----
     // Anyone signed in (anonymously) can read any profile (needed to show names/avatars
@@ -42,6 +59,7 @@ service cloud.firestore {
       allow create: if isOwner(uid)
         && strLen(request.resource.data.displayName, 24)
         && strLen(request.resource.data.get('bio', ''), 80)
+        && !request.resource.data.keys().hasAny(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
         // A new client profile is always a student. Only the Admin SDK
         // verification endpoint may add the teacher role and timestamp.
         && isStudentProfileCreate(request.resource.data);
@@ -50,9 +68,22 @@ service cloud.firestore {
         && strLen(request.resource.data.get('bio', ''), 80)
         && validProfileRole(request.resource.data)
         && serverRoleFieldsUnchanged()
+        && publicPushFieldsUnchangedOrRemoved()
         // createdAt must never change after creation
         && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
+    }
+
+    // Private per-user push tokens. Public profile readers never see these.
+    match /pushDevices/{uid} {
+      allow read: if isOwner(uid);
+      allow create, update: if isOwner(uid)
+        && request.resource.data.keys().hasOnly(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
+        && strLen(request.resource.data.get('fcmToken', ''), 4096)
+        && request.resource.data.get('fcmTokens', []) is list
+        && request.resource.data.get('fcmTokens', []).size() <= 20
+        && request.resource.data.pushUpdatedAt == request.time;
+      allow delete: if isOwner(uid);
     }
 
     // Server-only rate-limit state for teacher verification. Admin SDK writes
@@ -80,7 +111,12 @@ service cloud.firestore {
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedBy == request.auth.uid
+        && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
+        && strLen(request.resource.data.get('description', ''), 400)
+        && strLen(request.resource.data.subject, 40)
+        && request.resource.data.category in
+             ['bring', 'reading', 'writing', 'test', 'project', 'important']
         && request.resource.data.get('attachments', []) is list
         && request.resource.data.get('attachments', []).size() <= 4;
       allow delete: if false; // use soft-delete (the `deleted` flag) instead
@@ -97,9 +133,13 @@ service cloud.firestore {
 
     // ---- Personal notes: private, never shared ----
     match /personalNotes/{noteId} {
-      allow read, update, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
+      allow read, delete: if isSignedIn() && resource.data.ownerId == request.auth.uid;
       allow create: if isSignedIn()
         && request.resource.data.ownerId == request.auth.uid
+        && strLen(request.resource.data.text, 300);
+      allow update: if isSignedIn()
+        && resource.data.ownerId == request.auth.uid
+        && request.resource.data.ownerId == resource.data.ownerId
         && strLen(request.resource.data.text, 300);
     }
 
@@ -135,12 +175,11 @@ service cloud.firestore {
       allow create: if isSignedIn()
         && request.resource.data.authorId == request.auth.uid
         && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*');
-      // Anyone may mark a story seen (touch only `seenBy`); author may do anything else.
-      allow update: if isSignedIn() && (
-        resource.data.authorId == request.auth.uid ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy']) ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['likes'])
-      );
+      // Story content is immutable after posting; only seen/like state may change.
+      allow update: if isSignedIn()
+        && request.resource.data.authorId == resource.data.authorId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['seenBy', 'likes']);
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
@@ -151,20 +190,25 @@ service cloud.firestore {
       allow read: if isStudent();
       allow create: if isStudent()
         && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.createdAt == request.time
         && strLen(request.resource.data.get('text', ''), 500)
-        && (request.resource.data.get('imageUrl', '') == '' ||
-            request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'));
-      allow update: if isStudent() && (
-        (resource.data.senderId == request.auth.uid
-          && request.resource.data.senderId == resource.data.senderId
-          && request.resource.data.createdAt == resource.data.createdAt
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions', 'edited']))
-        ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
-        ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
-      );
+        && validMediaUrl(request.resource.data.get('imageUrl', ''))
+        && validMediaUrl(request.resource.data.get('audioUrl', ''));
+      allow update: if isStudent()
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (resource.data.senderId == request.auth.uid
+            && strLen(request.resource.data.get('text', ''), 500)
+            && validMediaUrl(request.resource.data.get('imageUrl', ''))
+            && validMediaUrl(request.resource.data.get('audioUrl', ''))
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['deleted', 'text', 'imageUrl', 'audioUrl', 'reactions', 'edited']))
+          ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
+        );
       allow delete: if false;
     }
 
@@ -174,20 +218,25 @@ service cloud.firestore {
       allow read: if isTeacher();
       allow create: if isTeacher()
         && request.resource.data.senderId == request.auth.uid
+        && request.resource.data.createdAt == request.time
         && strLen(request.resource.data.get('text', ''), 500)
-        && (request.resource.data.get('imageUrl', '') == '' ||
-            request.resource.data.imageUrl.matches('https://firebasestorage\\.googleapis\\.com/.*'));
-      allow update: if isTeacher() && (
-        (resource.data.senderId == request.auth.uid
-          && request.resource.data.senderId == resource.data.senderId
-          && request.resource.data.createdAt == resource.data.createdAt
-          && request.resource.data.diff(resource.data).affectedKeys()
-               .hasOnly(['deleted', 'text', 'imageUrl', 'reactions', 'edited']))
-        ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
-        ||
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
-      );
+        && validMediaUrl(request.resource.data.get('imageUrl', ''))
+        && validMediaUrl(request.resource.data.get('audioUrl', ''));
+      allow update: if isTeacher()
+        && request.resource.data.senderId == resource.data.senderId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          (resource.data.senderId == request.auth.uid
+            && strLen(request.resource.data.get('text', ''), 500)
+            && validMediaUrl(request.resource.data.get('imageUrl', ''))
+            && validMediaUrl(request.resource.data.get('audioUrl', ''))
+            && request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['deleted', 'text', 'imageUrl', 'audioUrl', 'reactions', 'edited']))
+          ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+          ||
+          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
+        );
       allow delete: if false;
     }
 
@@ -224,44 +273,138 @@ service cloud.firestore {
       function isMember() {
         return isSignedIn() && request.auth.uid in resource.data.memberIds;
       }
-      function willBeMember() {
-        return isSignedIn() && request.auth.uid in request.resource.data.memberIds;
-      }
       function isGroupAdmin() {
-        return isSignedIn()
-          && 'adminIds' in resource.data
-          && request.auth.uid in resource.data.adminIds;
+        return isMember()
+          && resource.data.type == 'group'
+          && resource.data.get('adminIds', []) is list
+          && request.auth.uid in resource.data.get('adminIds', []);
+      }
+      function memberReadUpdateOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['unread', 'lastReadAt'])
+          && request.resource.data.get('unread', {}).diff(resource.data.get('unread', {}))
+                 .affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.get('lastReadAt', {}).diff(resource.data.get('lastReadAt', {}))
+                 .affectedKeys().hasOnly([request.auth.uid])
+          && request.resource.data.get('unread', {}).get(request.auth.uid, 0) == 0;
+      }
+      function memberMessagePreviewOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys()
+                 .hasOnly(['lastText', 'lastSenderId', 'lastAt', 'unread'])
+          && request.resource.data.lastSenderId == request.auth.uid
+          && request.resource.data.lastAt == request.time
+          && strLen(request.resource.data.get('lastText', ''), 240);
+      }
+      function adminGroupUpdate() {
+        return isGroupAdmin()
+          && request.auth.uid in request.resource.data.memberIds
+          && request.auth.uid in request.resource.data.get('adminIds', [])
+          && request.resource.data.memberIds is list
+          && request.resource.data.memberIds.size() >= 2
+          && request.resource.data.memberIds.size() <= 100
+          && request.resource.data.get('adminIds', []) is list
+          && request.resource.data.get('adminIds', []).size() >= 1
+          && request.resource.data.get('adminIds', []).size() <= request.resource.data.memberIds.size()
+          && request.resource.data.memberIds.toSet().hasAll(request.resource.data.get('adminIds', []))
+          && request.resource.data.get('members', {}) is map
+          && request.resource.data.get('unread', {}) is map
+          && strLen(request.resource.data.get('name', ''), 80)
+          && strLen(request.resource.data.get('description', ''), 300)
+          && validMediaUrl(request.resource.data.get('photoUrl', ''))
+          && (!('classId' in request.resource.data) || validClass(request.resource.data.classId))
+          && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['name', 'description', 'photoUrl', 'classId', 'memberIds', 'adminIds', 'members', 'unread']);
+      }
+      function nonAdminSelfLeave() {
+        return resource.data.type == 'group'
+          && !(request.auth.uid in resource.data.get('adminIds', []))
+          && request.resource.data.memberIds == resource.data.memberIds.removeAll([request.auth.uid])
+          && request.resource.data.get('adminIds', []) == resource.data.get('adminIds', [])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds']);
+      }
+      function adminSelfLeave() {
+        return resource.data.type == 'group'
+          && request.auth.uid in resource.data.get('adminIds', [])
+          && resource.data.get('adminIds', []).size() > 1
+          && request.resource.data.memberIds == resource.data.memberIds.removeAll([request.auth.uid])
+          && request.resource.data.get('adminIds', []) == resource.data.get('adminIds', []).removeAll([request.auth.uid])
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['memberIds', 'adminIds']);
       }
 
-      // Only members can read a conversation.
       allow read: if isMember();
 
-      // Creator must include themselves as a member.
       allow create: if isSignedIn()
+        && request.resource.data.type in ['dm', 'group']
+        && request.resource.data.memberIds is list
         && request.auth.uid in request.resource.data.memberIds
-        && (request.resource.data.type == 'dm' || request.resource.data.type == 'group');
+        && request.resource.data.memberIds.size() >= 2
+        && request.resource.data.memberIds.size() <= 100
+        && request.resource.data.members is map
+        && request.resource.data.createdAt == request.time
+        && (
+          (request.resource.data.type == 'dm'
+            && request.resource.data.memberIds.size() == 2)
+          ||
+          (request.resource.data.type == 'group'
+            && request.resource.data.createdBy == request.auth.uid
+            && request.resource.data.get('adminIds', []) is list
+            && request.auth.uid in request.resource.data.get('adminIds', [])
+            && request.resource.data.get('adminIds', []).size() >= 1
+            && request.resource.data.get('adminIds', []).size() <= request.resource.data.memberIds.size()
+            && request.resource.data.memberIds.toSet().hasAll(request.resource.data.get('adminIds', []))
+            && strLen(request.resource.data.get('name', ''), 80)
+            && strLen(request.resource.data.get('description', ''), 300)
+            && validMediaUrl(request.resource.data.get('photoUrl', ''))
+            && (!('classId' in request.resource.data) || validClass(request.resource.data.classId)))
+        );
 
-      // Members can update (send preview, mark read, react). Admins get member management.
-      // Anyone being removed can remove themselves (leave).
-      allow update: if isMember() || willBeMember() || isGroupAdmin();
+      allow update: if isMember()
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.createdAt == resource.data.createdAt
+        && (
+          memberReadUpdateOnly()
+          || memberMessagePreviewOnly()
+          || adminGroupUpdate()
+          || nonAdminSelfLeave()
+          || adminSelfLeave()
+        );
 
       allow delete: if false;
 
-      // Messages live in a subcollection — only conversation members may read/write.
       match /messages/{msgId} {
-        function convMembers() {
-          return get(/databases/$(database)/documents/conversations/$(convId)).data.memberIds;
+        function convData() {
+          return get(/databases/$(database)/documents/conversations/$(convId)).data;
         }
-        allow read: if isSignedIn() && request.auth.uid in convMembers();
-        allow create: if isSignedIn()
+        function convMember() {
+          return isSignedIn() && request.auth.uid in convData().memberIds;
+        }
+
+        allow read: if convMember();
+        allow create: if convMember()
+          && request.resource.data.conversationId == convId
           && request.resource.data.senderId == request.auth.uid
-          && request.auth.uid in convMembers();
-        // sender may edit/soft-delete own message; anyone in the conv may react.
-        allow update: if isSignedIn() && request.auth.uid in convMembers() && (
-          resource.data.senderId == request.auth.uid ||
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions']) ||
-          request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
-        );
+          && request.resource.data.createdAt == request.time
+          && request.resource.data.kind in
+               ['text', 'image', 'voice', 'sharedPost', 'sharedReel', 'sharedStory', 'poll']
+          && strLen(request.resource.data.get('text', ''), 2000)
+          && validMediaUrl(request.resource.data.get('imageUrl', ''))
+          && validMediaUrl(request.resource.data.get('audioUrl', ''));
+        allow update: if convMember()
+          && request.resource.data.conversationId == resource.data.conversationId
+          && request.resource.data.senderId == resource.data.senderId
+          && request.resource.data.createdAt == resource.data.createdAt
+          && (
+            (resource.data.senderId == request.auth.uid
+              && strLen(request.resource.data.get('text', ''), 2000)
+              && validMediaUrl(request.resource.data.get('imageUrl', ''))
+              && validMediaUrl(request.resource.data.get('audioUrl', ''))
+              && request.resource.data.diff(resource.data).affectedKeys()
+                   .hasOnly(['deleted', 'text', 'imageUrl', 'audioUrl', 'edited']))
+            ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['reactions'])
+            ||
+            request.resource.data.diff(resource.data).affectedKeys().hasOnly(['poll'])
+          );
         allow delete: if false;
       }
     }
@@ -289,39 +432,104 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.authorId == request.auth.uid;
     }
 
-    // ---- Notifications: a user reads/updates only their own ----
+    // ---- Notifications: recipient-owned inbox; creation is schema-limited ----
     match /notifications/{id} {
-      allow read, update, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
-      // Anyone signed in can create a notification addressed to another user
-      // (e.g. sending a DM notifies the recipient). Kept permissive but typed.
+      allow read, delete: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn()
+        && resource.data.userId == request.auth.uid
+        && request.resource.data.userId == resource.data.userId
+        && request.resource.data.fromUid == resource.data.fromUid
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        && request.resource.data.read is bool;
+
       allow create: if isSignedIn()
+        && request.resource.data.keys().hasOnly([
+             'userId', 'type', 'title', 'body', 'icon', 'route', 'data',
+             'fromUid', 'read', 'createdAt'
+           ])
         && request.resource.data.userId is string
-        && request.resource.data.fromUid == request.auth.uid;
+        && request.resource.data.userId != request.auth.uid
+        && request.resource.data.fromUid == request.auth.uid
+        && request.resource.data.type in [
+             'dm', 'groupMessage', 'reply', 'comment', 'groupInvite',
+             'adminPromote', 'addedToGroup', 'homework', 'exam',
+             'announcement', 'incomingCall', 'missedCall', 'postLike',
+             'classMessage', 'classReaction', 'studyHelp', 'storyNew',
+             'reelLike', 'storyLike'
+           ]
+        && strLen(request.resource.data.title, 120)
+        && strLen(request.resource.data.get('body', ''), 500)
+        && validMediaUrl(request.resource.data.get('icon', ''))
+        && strLen(request.resource.data.get('route', '/'), 300)
+        && validNotificationRoute(request.resource.data.get('route', '/'))
+        && request.resource.data.get('data', {}) is map
+        && request.resource.data.get('data', {}).size() <= 20
+        && request.resource.data.read == false
+        && request.resource.data.createdAt == request.time;
     }
 
-    // ---- Calls: only invited members can read/write the signalling doc ----
+    // ---- Calls: members may update call state, but not rewrite call identity ----
     match /calls/{callId} {
-      allow read: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+      function conversationData() {
+        return get(/databases/$(database)/documents/conversations/$(request.resource.data.conversationId)).data;
+      }
+      function callMember() {
+        return isSignedIn() && request.auth.uid in resource.data.memberIds;
+      }
+
+      allow read: if callMember();
       allow create: if isSignedIn()
         && request.resource.data.callerId == request.auth.uid
-        && request.auth.uid in request.resource.data.memberIds;
-      allow update: if isSignedIn() && request.auth.uid in resource.data.memberIds;
+        && request.resource.data.createdAt == request.time
+        && request.resource.data.status == 'ringing'
+        && request.resource.data.type in ['dm', 'group']
+        && request.resource.data.conversationId is string
+        && request.resource.data.memberIds is list
+        && request.auth.uid in request.resource.data.memberIds
+        && request.resource.data.memberIds.size() >= 2
+        && request.resource.data.memberIds.size() <= 100
+        && request.resource.data.participants is map
+        && request.resource.data.memberIds == conversationData().memberIds
+        && request.resource.data.type == conversationData().type;
+      allow update: if callMember()
+        && request.resource.data.conversationId == resource.data.conversationId
+        && request.resource.data.type == resource.data.type
+        && request.resource.data.callerId == resource.data.callerId
+        && request.resource.data.memberIds == resource.data.memberIds
+        && request.resource.data.createdAt == resource.data.createdAt
+        && request.resource.data.status in
+             ['ringing', 'connecting', 'connected', 'declined', 'ended', 'missed', 'unavailable']
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['status', 'participants', 'endedAt'])
+        && request.resource.data.participants.diff(resource.data.participants)
+             .affectedKeys().hasOnly([request.auth.uid]);
       allow delete: if false;
 
       // ICE candidates / SDP exchanged between peers, scoped to the call.
       match /signals/{sigId} {
-        function callMembers() {
-          return get(/databases/$(database)/documents/calls/$(callId)).data.memberIds;
+        function callData() {
+          return get(/databases/$(database)/documents/calls/$(callId)).data;
         }
-        allow read, create, update: if isSignedIn() && request.auth.uid in callMembers();
+        function isCallMember() {
+          return isSignedIn() && request.auth.uid in callData().memberIds;
+        }
+
+        allow read: if isCallMember();
+        allow create, update: if isCallMember()
+          && request.resource.data.from == request.auth.uid
+          && request.resource.data.to is string
+          && request.resource.data.to in callData().memberIds
+          && sigId == request.auth.uid + '__' + request.resource.data.to
+          && request.resource.data.updatedAt == request.time;
         allow delete: if false;
       }
     }
 
     // ---- App-wide small metadata docs (e.g. class chat pinned messages, typing indicators) ----
     match /appMeta/{id} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn()
+      allow read: if isStudent();
+      allow write: if isStudent()
         && (!('pinned' in request.resource.data) ||
             (request.resource.data.pinned is list && request.resource.data.pinned.size() <= 20))
         && (!('typing' in request.resource.data) || request.resource.data.typing is map);
@@ -363,6 +571,7 @@ service cloud.firestore {
       allow create: if isTeacher()
         && request.resource.data.teacherId == request.auth.uid
         && request.resource.data.studentId is string
+        && targetIsStudent(request.resource.data.studentId)
         && validClass(request.resource.data.classId)
         && request.resource.data.kind in ['merit', 'demerit']
         && request.resource.data.points is int
@@ -375,6 +584,7 @@ service cloud.firestore {
       // cannot edit their own points. Console/Admin can always correct mistakes.
       allow update: if isTeacher()
         && request.resource.data.studentId == resource.data.studentId
+        && targetIsStudent(request.resource.data.studentId)
         && request.resource.data.teacherId == resource.data.teacherId
         && request.resource.data.createdAt == resource.data.createdAt
         && validClass(request.resource.data.classId)
