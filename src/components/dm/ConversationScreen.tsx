@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowLeft, Phone } from 'lucide-react';
+import { ArrowLeft, Phone, Image as ImageIcon } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import DMBubble from './DMBubble';
 import DMInput from './DMInput';
@@ -25,6 +25,7 @@ import PinnedBar from '../chat/PinnedBar';
 import TypingIndicator from '../chat/TypingIndicator';
 import PresenceLabel from '../shared/PresenceLabel';
 import CreatePollSheet from '../chat/CreatePollSheet';
+import MediaBrowser from './MediaBrowser';
 import type { Conversation, DMMessage, StudentProfile } from '../../types';
 
 interface ConversationScreenProps {
@@ -59,6 +60,7 @@ export default function ConversationScreen({
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
   const [pollOpen, setPollOpen] = useState(false);
+  const [mediaOpen, setMediaOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   const isGroup = conversation.type === 'group';
@@ -193,6 +195,9 @@ export default function ConversationScreen({
             )}
           </div>
         </button>
+        <button onClick={() => setMediaOpen(true)} aria-label="Media, links and shared" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
+          <ImageIcon size={20} />
+        </button>
         {!blocked && (
           <button
             onClick={async () => {
@@ -274,6 +279,10 @@ export default function ConversationScreen({
       <CreatePollSheet open={pollOpen} onClose={() => setPollOpen(false)} onCreate={handleCreatePoll} />
 
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
+
+      {mediaOpen && (
+        <MediaBrowser conversationId={conversation.id} onBack={() => setMediaOpen(false)} onOpenShared={onOpenShared} />
+      )}
     </div>
   );
 }

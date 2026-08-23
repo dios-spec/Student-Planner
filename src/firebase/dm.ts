@@ -2,12 +2,14 @@ import {
   collection,
   doc,
   getDoc,
+  getDocs,
   limit,
   onSnapshot,
   orderBy,
   query,
   serverTimestamp,
   updateDoc,
+  where,
   arrayUnion,
   arrayRemove,
   increment,
@@ -206,4 +208,38 @@ export async function voteOnDMPoll(conversationId: string, messageId: string, op
 
 export async function closeDMPoll(conversationId: string, messageId: string) {
   await updateDoc(doc(msgCol(conversationId), messageId), { 'poll.closed': true });
+}
+
+// ---- Media/Links/Voice/Shared browser: fetched on-demand per tab, not upfront ----
+
+export async function getDMMediaOnce(conversationId: string): Promise<DMMessage[]> {
+  const q = query(msgCol(conversationId), where('kind', '==', 'image'), orderBy('createdAt', 'desc'), limit(60));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DMMessage);
+}
+
+export async function getDMVoiceOnce(conversationId: string): Promise<DMMessage[]> {
+  const q = query(msgCol(conversationId), where('kind', '==', 'voice'), orderBy('createdAt', 'desc'), limit(60));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DMMessage);
+}
+
+export async function getDMSharedOnce(conversationId: string): Promise<DMMessage[]> {
+  const q = query(msgCol(conversationId), where('kind', 'in', ['sharedPost', 'sharedReel', 'sharedStory']), orderBy('createdAt', 'desc'), limit(60));
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DMMessage);
+}
+
+const URL_RE = /https?:\/\/[^\s]+/i;
+
+/** No `containsLink` field exists at write time, so this scans recent text
+ * messages client-side -- fine for a single conversation's volume, but a
+ * different mechanism than the other three (indexed) tabs. */
+export async function getDMLinksOnce(conversationId: string): Promise<DMMessage[]> {
+  const q = query(msgCol(conversationId), where('kind', '==', 'text'), orderBy('createdAt', 'desc'), limit(300));
+  const snap = await getDocs(q);
+  return snap.docs
+    .map((d) => ({ id: d.id, ...d.data() }) as DMMessage)
+    .filter((m) => m.text && URL_RE.test(m.text))
+    .slice(0, 60);
 }
