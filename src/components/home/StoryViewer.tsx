@@ -7,6 +7,7 @@ import type { StoryGroup } from '../../hooks/useStories';
 import { markStorySeen, deleteStory, toggleStoryLike } from '../../firebase/stories';
 import { useAuth } from '../../context/AuthContext';
 import { relativeTime } from '../../utils/date';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface StoryViewerProps {
   groups: StoryGroup[];
@@ -162,6 +163,7 @@ export default function StoryViewer({ groups, startIndex, onClose, onOpenProfile
         <button onClick={() => onOpenProfile?.(group.authorId)} className="flex items-center gap-2">
           <Avatar name={group.authorName} src={group.authorAvatar} size="sm" />
           <span className="text-sm font-semibold text-white">{group.authorName}</span>
+          <StudentMeritPill uid={group.authorId} size="micro" variant="dark" />
         </button>
         <span className="text-xs text-white/60">{relativeTime(createdDate)}</span>
         <div className="ml-auto flex items-center gap-3">

@@ -68,7 +68,7 @@ export default function ProfilePage() {
           </button>
         </div>
 
-        <MeritSummaryCard uid={profile.id} />
+        {!isTeacher && <MeritSummaryCard uid={profile.id} />}
 
         <button
           onClick={() => navigate('/merits')}
@@ -77,7 +77,7 @@ export default function ProfilePage() {
           <Award size={18} className="text-accent" />
           <div className="flex-1">
             <p className="text-sm font-semibold text-ink">
-              {isTeacher ? 'Manage Merit & Demerit' : 'Merit, Demerit & Badges'}
+              {isTeacher ? 'Student Merit Manager' : 'Merit, Demerit & Badges'}
             </p>
             <p className="text-xs text-ink-soft">
               {isTeacher ? 'Award points to students by class' : 'See your live points, badges and history'}

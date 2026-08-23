@@ -5,6 +5,7 @@ import Avatar from '../shared/Avatar';
 import EmojiPicker from './EmojiPicker';
 import ReactionRow from './ReactionRow';
 import VoicePlayer from '../dm/VoicePlayer';
+import StudentMeritPill from '../merit/StudentMeritPill';
 import PollCard from './PollCard';
 import { relativeTime } from '../../utils/date';
 
@@ -56,9 +57,12 @@ export default function MessageBubble({
       )}
       <div className={`max-w-[75%] ${isMine ? 'items-end' : 'items-start'} flex flex-col`}>
         {!isMine && (
-          <button onClick={() => onOpenProfile(message.senderId)} className="mb-0.5 px-1 text-xs font-semibold text-ink-soft">
-            {message.senderName}
-          </button>
+          <div className="mb-0.5 flex flex-wrap items-center gap-1 px-1">
+            <button onClick={() => onOpenProfile(message.senderId)} className="text-xs font-semibold text-ink-soft">
+              {message.senderName}
+            </button>
+            <StudentMeritPill uid={message.senderId} size="micro" />
+          </div>
         )}
 
         {message.replyTo && (

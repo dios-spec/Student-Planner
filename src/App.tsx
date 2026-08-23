@@ -1,10 +1,11 @@
-﻿import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
 import { ClassProvider } from './context/ClassContext';
+import { MeritProvider } from './context/MeritContext';
 import { CallProvider } from './context/CallContext';
 import { ActiveConversationProvider } from './context/ActiveConversationContext';
 import BottomNav from './components/layout/BottomNav';
@@ -106,6 +107,7 @@ function AppShell() {
 
   return (
     <ClassProvider>
+      <MeritProvider>
       <CallProvider>
       <ActiveConversationProvider>
         <BackgroundNotifier />
@@ -140,6 +142,7 @@ function AppShell() {
         </div>
       </ActiveConversationProvider>
       </CallProvider>
+      </MeritProvider>
     </ClassProvider>
   );
 }
@@ -178,5 +181,3 @@ export default function App() {
     </ThemeProvider>
   );
 }
-
-

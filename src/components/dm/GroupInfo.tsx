@@ -1,12 +1,14 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { ArrowLeft, UserPlus, LogOut, Shield, ShieldOff, UserMinus, Pencil, Check } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import ConfirmDialog from '../shared/ConfirmDialog';
-import { listAllProfiles, addGroupMembers, removeGroupMember, promoteToAdmin, demoteAdmin, leaveGroup, updateGroupInfo } from '../../firebase/conversations';
+import { addGroupMembers, removeGroupMember, promoteToAdmin, demoteAdmin, leaveGroup, updateGroupInfo } from '../../firebase/conversations';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
-import type { Conversation, StudentProfile } from '../../types';
+import type { Conversation } from '../../types';
+import { useMeritContext } from '../../context/MeritContext';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface GroupInfoProps {
   conversation: Conversation;
@@ -18,22 +20,17 @@ interface GroupInfoProps {
 export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile }: GroupInfoProps) {
   const { user } = useAuth();
   const { show } = useToast();
+  const { profiles: liveProfileMap } = useMeritContext();
   const isAdmin = conversation.adminIds?.includes(user?.uid || '') ?? false;
   const admins = conversation.adminIds || [];
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(conversation.name || '');
   const [addOpen, setAddOpen] = useState(false);
-  const [people, setPeople] = useState<StudentProfile[]>([]);
   const [confirm, setConfirm] = useState<null | { title: string; message: string; danger?: boolean; action: () => void }>(null);
 
-  useEffect(() => {
-    if (addOpen && user) {
-      listAllProfiles(user.uid).then((all) =>
-        setPeople(all.filter((p) => !conversation.memberIds.includes(p.id)))
-      );
-    }
-  }, [addOpen, user, conversation.memberIds]);
-
+  const people = Object.values(liveProfileMap).filter(
+    (p) => p.id !== user?.uid && p.onboarded && !conversation.memberIds.includes(p.id)
+  );
   const members = conversation.memberIds;
   const profiles = useLiveProfiles(members);
   // Prefer the LIVE profile over the denormalized snapshot frozen on the
@@ -157,7 +154,10 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
                 onClick={async () => { await addGroupMembers(conversation.id, [p]); show(`Added ${p.displayName}`); }}
                 className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-alt">
                 <Avatar name={p.displayName} src={p.avatarUrl} emoji={p.emoji} size="sm" />
-                <span className="flex-1 truncate text-sm">{p.displayName}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm">{p.displayName}</span>
+                  <StudentMeritPill uid={p.id} size="micro" />
+                </span>
                 <UserPlus size={16} className="text-accent" />
               </button>
             ))}
@@ -196,9 +196,12 @@ function MemberRow({
       <button onClick={() => onOpenProfile(id)}>
         <Avatar name={info.name} src={info.avatar} size="sm" />
       </button>
-      <button onClick={() => onOpenProfile(id)} className="flex-1 truncate text-left text-sm text-ink">
-        {info.name} {me && <span className="text-ink-soft">(You)</span>}
-      </button>
+      <div className="min-w-0 flex-1">
+        <button onClick={() => onOpenProfile(id)} className="block w-full truncate text-left text-sm text-ink">
+          {info.name} {me && <span className="text-ink-soft">(You)</span>}
+        </button>
+        <StudentMeritPill uid={id} size="micro" />
+      </div>
       {isAdminBadge && (
         <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold text-accent">Admin</span>
       )}

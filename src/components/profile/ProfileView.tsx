@@ -93,9 +93,11 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
             {profile.bio && <p className="text-sm italic text-ink-soft">"{profile.bio}"</p>}
             <p className="text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
 
-            <div className="w-full pt-2">
-              <MeritSummaryCard uid={profile.id} compact />
-            </div>
+            {!isVerifiedTeacherProfile(profile) && (
+              <div className="w-full pt-2">
+                <MeritSummaryCard uid={profile.id} compact />
+              </div>
+            )}
 
             {!isMe && (
               <div className="mt-2 flex items-center gap-2">

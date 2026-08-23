@@ -24,9 +24,11 @@ export default function ProfileCard({
             </div>
           </div>
           {profile.bio && <p className="text-sm italic text-ink-soft">"{profile.bio}"</p>}
-          <div className="w-full">
-            <MeritSummaryCard uid={profile.id} compact />
-          </div>
+          {!isVerifiedTeacherProfile(profile) && (
+            <div className="w-full">
+              <MeritSummaryCard uid={profile.id} compact />
+            </div>
+          )}
         </div>
       )}
     </Modal>

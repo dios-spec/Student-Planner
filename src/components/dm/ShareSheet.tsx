@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { Check, Search } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Avatar from '../shared/Avatar';
-import { watchMyConversations, ensureDM, listAllProfiles } from '../../firebase/conversations';
+import { watchMyConversations, ensureDM } from '../../firebase/conversations';
 import { sendDM } from '../../firebase/dm';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import type { Conversation, StudentProfile } from '../../types';
+import { useMeritContext } from '../../context/MeritContext';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 export interface ShareContent {
   kind: 'post' | 'reel' | 'story';
@@ -27,15 +29,14 @@ export default function ShareSheet({
 }) {
   const { user, profile } = useAuth();
   const { show } = useToast();
+  const { profiles: liveProfileMap } = useMeritContext();
   const [convs, setConvs] = useState<Conversation[]>([]);
-  const [people, setPeople] = useState<StudentProfile[]>([]);
   const [q, setQ] = useState('');
   const [sent, setSent] = useState<Set<string>>(new Set());
 
   useEffect(() => {
     if (!content || !user) return;
     const unsub = watchMyConversations(user.uid, setConvs);
-    listAllProfiles(user.uid).then(setPeople);
     setSent(new Set());
     setQ('');
     return unsub;
@@ -76,6 +77,7 @@ export default function ShareSheet({
     );
   }
 
+  const people = Object.values(liveProfileMap).filter((p) => p.id !== user?.uid && p.onboarded);
   const groups = convs.filter((c) => c.type === 'group');
   const dmConvs = convs.filter((c) => c.type === 'dm');
 
@@ -122,7 +124,10 @@ export default function ShareSheet({
               className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-alt"
             >
               <Avatar name={p.displayName} src={p.avatarUrl} emoji={p.emoji} size="sm" />
-              <span className="flex-1 truncate text-sm">{p.displayName}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm">{p.displayName}</span>
+                <StudentMeritPill uid={p.id} size="micro" />
+              </span>
               {sent.has(key) && <Check size={16} className="text-success" />}
             </button>
           );

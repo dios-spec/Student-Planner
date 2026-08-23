@@ -8,15 +8,10 @@ export default function MeritSummaryCard({
   uid: string;
   compact?: boolean;
 }) {
-  const { stats, badges, loading } = useMeritRecords(uid);
+  const { stats, badges, loading, isTeacherProfile } = useMeritRecords(uid);
 
-  if (loading) {
-    return (
-      <div className={`rounded-2xl border border-line bg-surface ${compact ? 'p-3' : 'p-4'}`}>
-        <p className="text-xs text-ink-soft">Loading Merit & Demerit...</p>
-      </div>
-    );
-  }
+  // Teachers manage student points but never have Merit/Demerit of their own.
+  if (loading || isTeacherProfile) return null;
 
   return (
     <div className={`rounded-2xl border border-line bg-surface ${compact ? 'p-3' : 'p-4'}`}>

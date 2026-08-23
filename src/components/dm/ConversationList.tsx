@@ -4,6 +4,7 @@ import { PlannerSkeleton } from '../shared/Skeleton';
 import { relativeTime } from '../../utils/date';
 import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import type { Conversation } from '../../types';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 export default function ConversationList({
   conversations,
@@ -49,10 +50,13 @@ export default function ConversationList({
           >
             <Avatar name={title} src={photo} size="md" />
             <div className="min-w-0 flex-1">
-              <div className="flex items-center justify-between gap-2">
-                <p className={`truncate text-sm ${unread > 0 ? 'font-bold text-ink' : 'font-semibold text-ink'}`}>
-                  {title}
-                </p>
+              <div className="flex items-start justify-between gap-2">
+                <div className="min-w-0">
+                  <p className={`truncate text-sm ${unread > 0 ? 'font-bold text-ink' : 'font-semibold text-ink'}`}>
+                    {title}
+                  </p>
+                  {!isGroup && <StudentMeritPill uid={otherId} size="micro" />}
+                </div>
                 <span className="shrink-0 text-[11px] text-ink-soft">{time}</span>
               </div>
               <div className="flex items-center justify-between gap-2">

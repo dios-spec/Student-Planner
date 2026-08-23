@@ -4,6 +4,7 @@ import type { Post } from '../../types';
 import { toggleLike, deletePost } from '../../firebase/posts';
 import { useAuth } from '../../context/AuthContext';
 import { relativeTime } from '../../utils/date';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 export default function PostCard({
   post, onOpenProfile, onImageClick, onOpenComments, onShare, saved, onToggleSave, priority = false,
@@ -29,7 +30,10 @@ export default function PostCard({
         <button type="button" onClick={() => onOpenProfile(post.authorId)} aria-label={`Open ${post.authorName}'s profile`}>
           <Avatar name={post.authorName} src={post.authorAvatar} size="sm" />
         </button>
-        <button type="button" onClick={() => onOpenProfile(post.authorId)} className="text-sm font-semibold text-ink">{post.authorName}</button>
+        <div className="min-w-0">
+          <button type="button" onClick={() => onOpenProfile(post.authorId)} className="block truncate text-sm font-semibold text-ink">{post.authorName}</button>
+          <StudentMeritPill uid={post.authorId} size="micro" />
+        </div>
         <span className="ml-auto text-xs text-ink-soft">{relativeTime(createdDate)}</span>
         {isMine && (
           <button type="button" onClick={() => deletePost(post.id)} aria-label="Delete post" className="rounded-full p-2 text-ink-soft hover:text-coral"><Trash2 size={16} /></button>

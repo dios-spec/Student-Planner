@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { Users, PenSquare, Search, X } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import ConversationList from '../components/dm/ConversationList';
@@ -10,14 +10,17 @@ import SharedStoryModal from '../components/dm/SharedStoryModal';
 import Avatar from '../components/shared/Avatar';
 import { useConversations } from '../hooks/useConversations';
 import { useBlocks } from '../hooks/useBlocks';
-import { getConversationOnce, listAllProfiles } from '../firebase/conversations';
+import { getConversationOnce } from '../firebase/conversations';
 import { useAuth } from '../context/AuthContext';
-import type { Conversation, StudentProfile } from '../types';
+import type { Conversation } from '../types';
+import { useMeritContext } from '../context/MeritContext';
+import StudentMeritPill from '../components/merit/StudentMeritPill';
 
 export default function MessagesPage() {
   const { user } = useAuth();
   const { conversations, loading } = useConversations(user?.uid);
   const { cannotInteract } = useBlocks(user?.uid);
+  const { profiles: liveProfileMap } = useMeritContext();
   const [active, setActive] = useState<Conversation | null>(null);
   const [groupInfo, setGroupInfo] = useState<Conversation | null>(null);
   const [createOpen, setCreateOpen] = useState(false);
@@ -25,13 +28,7 @@ export default function MessagesPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [sharedStoryId, setSharedStoryId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
-  const [allProfiles, setAllProfiles] = useState<StudentProfile[]>([]);
-
-  useEffect(() => {
-    if (searchOpen && user && allProfiles.length === 0) {
-      listAllProfiles(user.uid).then(setAllProfiles);
-    }
-  }, [searchOpen, user, allProfiles.length]);
+  const allProfiles = Object.values(liveProfileMap).filter((p) => p.id !== user?.uid && p.onboarded);
 
   async function openById(id: string) {
     const c = await getConversationOnce(id);
@@ -46,8 +43,11 @@ export default function MessagesPage() {
   const liveGroupInfo = groupInfo ? conversations?.find((c) => c.id === groupInfo.id) || groupInfo : null;
 
   const q = query.trim().toLowerCase();
-  const convTitle = (c: Conversation) =>
-    c.type === 'group' ? (c.name || 'Group') : (c.members[otherIdOf(c)]?.name || '');
+  const convTitle = (c: Conversation) => {
+    if (c.type === 'group') return c.name || 'Group';
+    const otherId = otherIdOf(c);
+    return liveProfileMap[otherId]?.displayName || c.members[otherId]?.name || '';
+  };
 
   const filteredConvos = q ? (conversations || []).filter((c) => convTitle(c).toLowerCase().includes(q)) : conversations;
   const matchedProfiles = q ? allProfiles.filter((p) => p.displayName.toLowerCase().includes(q)) : [];
@@ -100,7 +100,10 @@ export default function MessagesPage() {
                 {matchedProfiles.map((p) => (
                   <button key={p.id} onClick={() => setViewUid(p.id)} className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-surface-alt">
                     <Avatar name={p.displayName} src={p.avatarUrl} size="sm" />
-                    <span className="text-sm font-medium text-ink">{p.displayName}</span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-sm font-medium text-ink">{p.displayName}</span>
+                      <StudentMeritPill uid={p.id} size="micro" />
+                    </span>
                   </button>
                 ))}
               </div>

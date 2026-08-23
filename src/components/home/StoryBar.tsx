@@ -2,6 +2,7 @@ import { Plus } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import type { StoryGroup } from '../../hooks/useStories';
 import { useAuth } from '../../context/AuthContext';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface StoryBarProps {
   groups: StoryGroup[];
@@ -22,6 +23,7 @@ export default function StoryBar({ groups, onOpenGroup, onCreate }: StoryBarProp
           </span>
         </div>
         <span className="w-full truncate text-center text-xs text-ink-soft">Your story</span>
+        <StudentMeritPill uid={user?.uid} size="micro" />
       </button>
 
       {groups.map((group, i) => {
@@ -44,6 +46,7 @@ export default function StoryBar({ groups, onOpenGroup, onCreate }: StoryBarProp
             <span className="w-full truncate text-center text-xs text-ink-soft">
               {group.authorName}
             </span>
+            <StudentMeritPill uid={group.authorId} size="micro" />
           </button>
         );
       })}

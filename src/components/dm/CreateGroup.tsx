@@ -1,13 +1,14 @@
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Camera, Check } from 'lucide-react';
 import Modal from '../shared/Modal';
 import Avatar from '../shared/Avatar';
-import { listAllProfiles, createGroup } from '../../firebase/conversations';
+import { createGroup } from '../../firebase/conversations';
 import { uploadAvatar } from '../../firebase/storage';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { CLASSES, type ClassId } from '../../data/classes';
-import type { StudentProfile } from '../../types';
+import { useMeritContext } from '../../context/MeritContext';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 export default function CreateGroup({
   open,
@@ -20,18 +21,17 @@ export default function CreateGroup({
 }) {
   const { user, profile } = useAuth();
   const { show } = useToast();
+  const { profiles: liveProfileMap } = useMeritContext();
   const [name, setName] = useState('');
   const [desc, setDesc] = useState('');
   const [photoUrl, setPhotoUrl] = useState<string | undefined>();
   const [classId, setClassId] = useState<ClassId | null>(null);
-  const [people, setPeople] = useState<StudentProfile[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [creating, setCreating] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (open && user) listAllProfiles(user.uid).then(setPeople);
-  }, [open, user]);
+  const people = Object.values(liveProfileMap).filter(
+    (p) => p.id !== user?.uid && p.onboarded
+  );
 
   function toggle(id: string) {
     setSelected((s) => {
@@ -124,7 +124,10 @@ export default function CreateGroup({
                 className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-alt"
               >
                 <Avatar name={p.displayName} src={p.avatarUrl} emoji={p.emoji} size="sm" />
-                <span className="flex-1 truncate text-sm text-ink">{p.displayName}</span>
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate text-sm text-ink">{p.displayName}</span>
+                  <StudentMeritPill uid={p.id} size="micro" />
+                </span>
                 <span className={`flex h-5 w-5 items-center justify-center rounded-full border ${
                   selected.has(p.id) ? 'border-accent bg-accent text-white' : 'border-line'
                 }`}>

@@ -4,6 +4,7 @@ import Avatar from '../shared/Avatar';
 import type { Reel } from '../../types';
 import { toggleReelLike } from '../../firebase/reels';
 import { useAuth } from '../../context/AuthContext';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface ReelItemProps {
   reel: Reel;
@@ -89,6 +90,7 @@ export default function ReelItem({
         <button onClick={() => onOpenProfile(reel.authorId)} className="mb-1.5 flex items-center gap-2">
           <Avatar name={reel.authorName} src={reel.authorAvatar} size="sm" />
           <span className="text-sm font-semibold text-white drop-shadow">{reel.authorName}</span>
+          <StudentMeritPill uid={reel.authorId} size="micro" variant="dark" />
         </button>
         {reel.caption && <p className="text-sm text-white/90 drop-shadow">{reel.caption}</p>}
       </div>

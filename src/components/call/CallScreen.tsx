@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import { useLiveConversation } from '../../hooks/useLiveConversation';
 import type { CallDoc } from '../../types';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 function fmt(sec: number) {
   const m = Math.floor(sec / 60);
@@ -73,6 +74,7 @@ export default function CallScreen({
         </div>
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold text-white">{title}</h1>
+          {!isGroup && <StudentMeritPill uid={otherId} variant="dark" />}
           {connected ? (
             <p key="timer" className="animate-call-timer-in mt-1 text-sm text-white/60">{fmt(elapsed)}</p>
           ) : (
@@ -105,6 +107,7 @@ export default function CallScreen({
                     )}
                   </div>
                   <span className="max-w-16 truncate text-xs text-white/70">{participantName}</span>
+                  <StudentMeritPill uid={id} size="micro" variant="dark" />
                 </div>
               );
             })}
@@ -132,5 +135,3 @@ export default function CallScreen({
     </div>
   );
 }
-
-

@@ -1,4 +1,4 @@
-﻿import { useEffect } from 'react';
+import { useEffect } from 'react';
 import { Phone, PhoneOff } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { startRingtone, stopRingtone } from '../../utils/ringtone';
@@ -6,6 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import { useLiveConversation } from '../../hooks/useLiveConversation';
 import type { CallDoc } from '../../types';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 /** Full-screen incoming-call UI with ringtone. Shown when the app is open. */
 export default function IncomingCall({
@@ -49,10 +50,16 @@ export default function IncomingCall({
           <h1 className="font-display text-2xl font-bold text-white">
             {isGroup ? groupName : callerName}
           </h1>
+          {!isGroup && <StudentMeritPill uid={call.callerId} variant="dark" />}
           <p className="mt-1 text-sm text-white/60">
             {isGroup ? 'Incoming group voice call' : 'Incoming voice call'}
           </p>
-          {isGroup && <p className="text-xs text-white/50">{callerName} is calling</p>}
+          {isGroup && (
+            <div className="mt-1 flex flex-col items-center gap-1">
+              <p className="text-xs text-white/50">{callerName} is calling</p>
+              <StudentMeritPill uid={call.callerId} size="micro" variant="dark" />
+            </div>
+          )}
         </div>
       </div>
 
@@ -73,4 +80,3 @@ export default function IncomingCall({
     </div>
   );
 }
-

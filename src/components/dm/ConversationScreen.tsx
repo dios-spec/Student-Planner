@@ -27,6 +27,7 @@ import PresenceLabel from '../shared/PresenceLabel';
 import CreatePollSheet from '../chat/CreatePollSheet';
 import MediaBrowser from './MediaBrowser';
 import type { Conversation, DMMessage, StudentProfile } from '../../types';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface ConversationScreenProps {
   conversation: Conversation;
@@ -188,6 +189,7 @@ export default function ConversationScreen({
           <Avatar name={title} src={photo} size="sm" />
           <div className="min-w-0 text-left">
             <p className="truncate text-sm font-semibold text-ink">{title}</p>
+            {!isGroup && <StudentMeritPill uid={otherId} size="micro" />}
             {isGroup ? (
               <p className="text-xs text-ink-soft">{conversation.memberIds.length} members</p>
             ) : (

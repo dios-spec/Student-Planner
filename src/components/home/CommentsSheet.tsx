@@ -8,6 +8,8 @@ import { useAuth } from '../../context/AuthContext';
 import { relativeTime } from '../../utils/date';
 import { containsBlockedLanguage, isRateLimited } from '../../utils/moderation';
 import type { Comment } from '../../types';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
+import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface CommentsSheetProps {
   postId: string | null;
@@ -20,6 +22,7 @@ export default function CommentsSheet({ postId, onClose, onOpenProfile }: Commen
   const [comments, setComments] = useState<Comment[] | null>(null);
   const [text, setText] = useState('');
   const [warning, setWarning] = useState<string | null>(null);
+  const profiles = useLiveProfiles((comments || []).map((comment) => comment.authorId));
 
   useEffect(() => {
     if (!postId) {
@@ -59,19 +62,24 @@ export default function CommentsSheet({ postId, onClose, onOpenProfile }: Commen
           {comments?.length === 0 && <EmptyState emoji="💬" title="No comments yet" subtitle="Be the first!" />}
           {comments?.map((c) => {
             const created = c.createdAt?.toDate ? c.createdAt.toDate() : new Date();
+            const authorName = liveName(profiles, c.authorId, c.authorName);
+            const authorAvatar = liveAvatar(profiles, c.authorId, c.authorAvatar);
             return (
               <div key={c.id} className="flex gap-2.5">
                 <button onClick={() => onOpenProfile(c.authorId)}>
-                  <Avatar name={c.authorName} src={c.authorAvatar} size="sm" />
+                  <Avatar name={authorName} src={authorAvatar} size="sm" />
                 </button>
                 <div className="min-w-0 flex-1">
                   <p className="text-sm text-ink">
                     <button onClick={() => onOpenProfile(c.authorId)} className="font-semibold">
-                      {c.authorName}
+                      {authorName}
                     </button>{' '}
                     {c.text}
                   </p>
-                  <span className="text-[11px] text-ink-soft">{relativeTime(created)}</span>
+                  <div className="mt-0.5 flex flex-wrap items-center gap-2">
+                    <span className="text-[11px] text-ink-soft">{relativeTime(created)}</span>
+                    <StudentMeritPill uid={c.authorId} size="micro" />
+                  </div>
                 </div>
                 {c.authorId === user?.uid && (
                   <button

@@ -3,6 +3,7 @@ import { SmilePlus, Reply, Trash2, Pin, Pencil, Bookmark } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import EmojiPicker from '../chat/EmojiPicker';
 import ReactionRow from '../chat/ReactionRow';
+import StudentMeritPill from '../merit/StudentMeritPill';
 import VoicePlayer from './VoicePlayer';
 import SharedPreview from './SharedPreview';
 import PollCard from '../chat/PollCard';
@@ -57,9 +58,12 @@ export default function DMBubble({
       )}
       <div className={`flex max-w-[78%] flex-col ${isMine ? 'items-end' : 'items-start'}`}>
         {!isMine && isGroup && (
-          <button onClick={() => onOpenProfile(message.senderId)} className="mb-0.5 px-1 text-xs font-semibold text-ink-soft">
-            {message.senderName}
-          </button>
+          <div className="mb-0.5 flex flex-wrap items-center gap-1 px-1">
+            <button onClick={() => onOpenProfile(message.senderId)} className="text-xs font-semibold text-ink-soft">
+              {message.senderName}
+            </button>
+            <StudentMeritPill uid={message.senderId} size="micro" />
+          </div>
         )}
 
         {message.replyTo && (
