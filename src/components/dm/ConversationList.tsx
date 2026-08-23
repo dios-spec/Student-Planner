@@ -2,6 +2,7 @@ import Avatar from '../shared/Avatar';
 import EmptyState from '../shared/EmptyState';
 import { PlannerSkeleton } from '../shared/Skeleton';
 import { relativeTime } from '../../utils/date';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import type { Conversation } from '../../types';
 
 export default function ConversationList({
@@ -15,6 +16,11 @@ export default function ConversationList({
   myUid: string;
   onOpen: (c: Conversation) => void;
 }) {
+  const otherIds = (conversations || [])
+    .filter((c) => c.type !== 'group')
+    .map((c) => c.memberIds.find((m) => m !== myUid) || '');
+  const profiles = useLiveProfiles(otherIds);
+
   if (loading) return <div className="pt-3"><PlannerSkeleton /></div>;
   if (!conversations || conversations.length === 0) {
     return (
@@ -30,8 +36,8 @@ export default function ConversationList({
         const isGroup = c.type === 'group';
         const otherId = isGroup ? '' : c.memberIds.find((m) => m !== myUid) || '';
         const other = c.members[otherId];
-        const title = isGroup ? c.name || 'Group' : other?.name || 'Chat';
-        const photo = isGroup ? c.photoUrl : other?.avatar;
+        const title = isGroup ? c.name || 'Group' : liveName(profiles, otherId, other?.name || 'Chat');
+        const photo = isGroup ? c.photoUrl : liveAvatar(profiles, otherId, other?.avatar);
         const unread = c.unread?.[myUid] ?? 0;
         const time = c.lastAt?.toDate ? relativeTime(c.lastAt.toDate()) : '';
 
