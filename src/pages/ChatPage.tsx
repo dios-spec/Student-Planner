@@ -131,7 +131,7 @@ export default function ChatPage() {
   }
 
   return (
-    <div className="flex h-[calc(100dvh-64px)] flex-col">
+    <div className="flex h-[calc(100dvh-3.5rem-env(safe-area-inset-bottom))] flex-col">
       <TopBar
         title="Class Chat"
         right={

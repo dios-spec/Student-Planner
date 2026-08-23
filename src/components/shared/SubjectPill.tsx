@@ -1,9 +1,9 @@
-import * as Icons from 'lucide-react';
 import { subjectById } from '../../data/subjects';
+import { appIcon } from './AppIcon';
 
 export default function SubjectPill({ subjectId, size = 'md' }: { subjectId: string; size?: 'sm' | 'md' }) {
   const subject = subjectById(subjectId);
-  const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[subject.icon] || Icons.BookMarked;
+  const Icon = appIcon(subject.icon);
   const pad = size === 'sm' ? 'px-2 py-0.5 text-xs' : 'px-2.5 py-1 text-sm';
 
   return (

@@ -43,16 +43,16 @@ export default function DMInput({
 
   if (rec.recording) {
     return (
-      <div className="border-t border-line bg-surface px-3 py-2">
+      <div className="border-t border-line bg-surface px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
         <VoiceRecorderBar seconds={rec.seconds} onCancel={rec.cancel} onSend={stopAndSend} />
       </div>
     );
   }
 
   return (
-    <div className="border-t border-line bg-surface px-3 py-2">
-      {warning && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{warning}</p>}
-      {rec.error && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{rec.error}</p>}
+    <div className="border-t border-line bg-surface px-3 pb-[calc(env(safe-area-inset-bottom)+0.5rem)] pt-2">
+      {warning && <p role="alert" className="mb-1.5 px-1 text-xs font-medium text-coral">{warning}</p>}
+      {rec.error && <p role="alert" className="mb-1.5 px-1 text-xs font-medium text-coral">{rec.error}</p>}
 
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-alt px-3 py-1.5 text-xs">

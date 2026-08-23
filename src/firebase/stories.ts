@@ -4,6 +4,7 @@ import {
   deleteDoc,
   doc,
   getDoc,
+  limit,
   onSnapshot,
   orderBy,
   query,
@@ -60,7 +61,7 @@ export async function createStory(story: NewStory) {
 /** Live listener for all stories that haven't expired yet, newest first. */
 export function watchActiveStories(cb: (stories: Story[]) => void) {
   const now = Timestamp.fromMillis(Date.now());
-  const q = query(storiesCol, where('expiresAt', '>', now), orderBy('expiresAt', 'asc'));
+  const q = query(storiesCol, where('expiresAt', '>', now), orderBy('expiresAt', 'asc'), limit(120));
   return onSnapshot(q, (snap) => {
     const stories = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as Story)

@@ -144,7 +144,7 @@ export default function PlannerPage() {
 
       <button
         onClick={openAdd}
-        className="fixed bottom-24 right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
       >
         <Plus size={18} strokeWidth={2.5} />
         Add Task

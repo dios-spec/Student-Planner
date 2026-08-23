@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -82,6 +82,48 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
   const [data, setData] = useState<SearchData | null>(null);
   const [error, setError] = useState(false);
   const [reloadKey, setReloadKey] = useState(0);
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+  const onCloseRef = useRef(onClose);
+
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  }, [onClose]);
+
+  useEffect(() => {
+    if (!open) return;
+    const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const frame = window.requestAnimationFrame(() => inputRef.current?.focus());
+
+    function handleKeyDown(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        onCloseRef.current();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = Array.from(dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])'
+      )).filter((element) => !element.hasAttribute('hidden'));
+      if (focusable.length === 0) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+
+    document.addEventListener('keydown', handleKeyDown);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      document.removeEventListener('keydown', handleKeyDown);
+      previousFocus?.focus({ preventScroll: true });
+    };
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -181,7 +223,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
   }
 
   return (
-    <div className="fixed inset-0 z-[140] flex flex-col bg-paper" role="dialog" aria-modal="true" aria-label="Search Buddy Planner">
+    <div ref={dialogRef} className="fixed inset-0 z-[140] flex flex-col bg-paper" role="dialog" aria-modal="true" aria-label="Search Buddy Planner">
       <div className="border-b border-line bg-surface px-3 pb-3 pt-[calc(env(safe-area-inset-top)+0.75rem)]">
         <div className="flex items-center gap-2">
           <button type="button" onClick={onClose} aria-label="Close search" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
@@ -190,7 +232,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-paper px-3 py-2.5 focus-within:border-accent">
             <Search size={17} className="shrink-0 text-ink-soft" />
             <input
-              autoFocus
+              ref={inputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
               placeholder={`Search everything in ${activeClass}…`}
@@ -265,7 +307,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
                     className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-3 text-left hover:border-accent/40"
                   >
                     {result.imageUrl ? (
-                      <img src={result.imageUrl} alt="" loading="lazy" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
+                      <img src={result.imageUrl} alt="" loading="lazy" decoding="async" className="h-12 w-12 shrink-0 rounded-xl object-cover" />
                     ) : (
                       <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-accent-soft text-accent">
                         <Icon size={20} />

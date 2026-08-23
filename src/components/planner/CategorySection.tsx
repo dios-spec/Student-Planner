@@ -1,8 +1,8 @@
-import * as Icons from 'lucide-react';
 import type { PlannerItem } from '../../types';
 import { CATEGORY_META } from '../../data/categories';
 import TaskCard from './TaskCard';
 import EmptyState from '../shared/EmptyState';
+import { appIcon } from '../shared/AppIcon';
 
 interface CategorySectionProps {
   category: PlannerItem['category'];
@@ -20,7 +20,7 @@ export default function CategorySection({
   category, items, completions, onToggleDone, onEdit, onDelete, emptyLabel, importantSet, onToggleImportant,
 }: CategorySectionProps) {
   const meta = CATEGORY_META[category];
-  const Icon = (Icons as unknown as Record<string, Icons.LucideIcon>)[meta.icon] || Icons.BookMarked;
+  const Icon = appIcon(meta.icon);
   const showCheckbox = category === 'writing' || category === 'reading' || category === 'bring';
 
   if (items.length === 0 && !emptyLabel) return null;

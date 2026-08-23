@@ -56,7 +56,7 @@ export default function ReelItem({
 
   return (
     <div className="relative h-full w-full snap-start bg-black">
-      <video ref={videoRef} src={reel.videoUrl} poster={reel.thumbUrl} loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full object-cover" />
+      <video ref={videoRef} src={reel.videoUrl} poster={reel.thumbUrl} preload={active ? 'metadata' : 'none'} loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full object-cover" />
 
       {paused && (
         <button onClick={togglePlay} className="absolute inset-0 flex items-center justify-center" aria-label="Play">

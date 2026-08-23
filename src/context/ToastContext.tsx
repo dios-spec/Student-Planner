@@ -29,10 +29,11 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   return (
     <ToastContext.Provider value={{ show }}>
       {children}
-      <div className="fixed bottom-20 left-0 right-0 z-50 flex flex-col items-center gap-2 px-4 pointer-events-none sm:bottom-6">
+      <div className="pointer-events-none fixed bottom-[calc(4.5rem+env(safe-area-inset-bottom))] left-0 right-0 z-50 flex flex-col items-center gap-2 px-4 sm:bottom-6" aria-live="polite" aria-atomic="false">
         {toasts.map((t) => (
           <div
             key={t.id}
+            role="status"
             className="pointer-events-auto flex items-center gap-3 rounded-2xl bg-ink px-4 py-3 text-sm text-paper shadow-lg dark:bg-paper dark:text-ink"
           >
             <span>{t.message}</span>

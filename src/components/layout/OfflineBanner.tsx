@@ -18,7 +18,7 @@ export default function OfflineBanner() {
   if (online) return null;
 
   return (
-    <div className="flex items-center justify-center gap-2 bg-coral-soft px-4 py-2 text-xs font-medium text-coral">
+    <div className="flex items-center justify-center gap-2 bg-coral-soft px-4 py-2 text-xs font-medium text-coral" role="status" aria-live="polite">
       <WifiOff size={14} />
       You're offline — showing saved information.
     </div>

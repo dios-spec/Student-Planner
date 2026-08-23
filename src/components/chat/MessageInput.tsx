@@ -55,8 +55,8 @@ export default function MessageInput({ onSend, onSendImage, onSendVoice, onTypin
 
   return (
     <div className="border-t border-line bg-surface px-3 py-2">
-      {warning && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{warning}</p>}
-      {rec.error && <p className="mb-1.5 px-1 text-xs font-medium text-coral">{rec.error}</p>}
+      {warning && <p role="alert" className="mb-1.5 px-1 text-xs font-medium text-coral">{warning}</p>}
+      {rec.error && <p role="alert" className="mb-1.5 px-1 text-xs font-medium text-coral">{rec.error}</p>}
 
       {replyTo && (
         <div className="mb-2 flex items-center justify-between rounded-lg bg-surface-alt px-3 py-1.5 text-xs">

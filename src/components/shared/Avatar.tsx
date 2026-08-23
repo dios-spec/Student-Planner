@@ -26,6 +26,8 @@ export default function Avatar({ name, src, emoji, size = 'md' }: AvatarProps) {
       <img
         src={src}
         alt={name}
+        loading="lazy"
+        decoding="async"
         className={`${SIZES[size]} aspect-square max-w-none shrink-0 rounded-full object-cover ring-2 ring-surface`}
       />
     );

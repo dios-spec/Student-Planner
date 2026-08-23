@@ -269,7 +269,7 @@ export default function StudyHelpPage() {
                         return (
                           <article key={material.id} className="min-w-0 overflow-hidden rounded-xl border border-line bg-paper">
                             <button type="button" onClick={() => setPreview(material.imageUrl)} className="relative block w-full">
-                              <img src={material.imageUrl} alt={material.title} loading="lazy" className="aspect-square w-full object-cover" />
+                              <img src={material.imageUrl} alt={material.title} loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
                               <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
                                 {kind.emoji} {kind.shortLabel}
                               </span>
@@ -322,7 +322,7 @@ export default function StudyHelpPage() {
       <button
         type="button"
         onClick={() => setUploadOpen(true)}
-        className="fixed bottom-24 right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
+        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
       >
         <Plus size={18} strokeWidth={2.5} /> Upload
       </button>

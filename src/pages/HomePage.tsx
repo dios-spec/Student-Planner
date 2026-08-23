@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, Bell, MessageCircle, CalendarClock, Search } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
@@ -33,11 +33,11 @@ export default function HomePage() {
     ...(posts || []).map((p) => p.authorId),
     ...groups.map((g) => g.authorId),
   ]);
-  const liveGroups = groups.map((g) => ({
-    ...g,
-    authorName: liveName(profiles, g.authorId, g.authorName),
-    authorAvatar: liveAvatar(profiles, g.authorId, g.authorAvatar),
-  }));
+  const liveGroups = useMemo(() => groups.map((group) => ({
+    ...group,
+    authorName: liveName(profiles, group.authorId, group.authorName),
+    authorAvatar: liveAvatar(profiles, group.authorId, group.authorAvatar),
+  })), [groups, profiles]);
   const { isSaved } = useSavedItems(user?.uid);
   const [storyStart, setStoryStart] = useState<number | null>(null);
   const [createStoryOpen, setCreateStoryOpen] = useState(false);
@@ -97,7 +97,7 @@ export default function HomePage() {
       )}
 
       <div>
-        {posts?.map((post) => (
+        {posts?.map((post, index) => (
           <PostCard
             key={post.id}
             post={{
@@ -110,6 +110,7 @@ export default function HomePage() {
             onOpenComments={setCommentsPostId}
             onShare={(p) => setShareContent({ kind: 'post', id: p.id, imageUrl: p.imageUrl, caption: p.caption, authorName: p.authorName })}
             saved={isSaved('post', post.id)}
+            priority={index === 0}
             onToggleSave={() => user && (isSaved('post', post.id)
               ? unsaveItem(user.uid, 'post', post.id)
               : saveItem({ userId: user.uid, type: 'post', refId: post.id, title: post.caption || 'Post', imageUrl: post.imageUrl, authorName: post.authorName }))}

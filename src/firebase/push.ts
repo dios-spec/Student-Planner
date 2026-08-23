@@ -1,8 +1,9 @@
-import { getMessaging, getToken, onMessage, isSupported } from 'firebase/messaging';
+import { getMessaging, getToken, isSupported } from 'firebase/messaging';
 import { arrayUnion, doc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { db } from './config';
 
 let messaging: ReturnType<typeof getMessaging> | null = null;
+const PUSH_SERVICE_WORKER_SCOPE = '/firebase-cloud-messaging-push-scope';
 
 export async function initPush(uid: string): Promise<void> {
   const supported = await isSupported().catch(() => false);
@@ -29,9 +30,11 @@ export async function initPush(uid: string): Promise<void> {
     const vapidKey = import.meta.env.VITE_FIREBASE_VAPID_KEY;
     if (!vapidKey) throw new Error('VITE_FIREBASE_VAPID_KEY is missing');
 
-    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+    // Keep Firebase push on its own scope so it cannot replace the PWA's root service worker.
+    const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js', {
+      scope: PUSH_SERVICE_WORKER_SCOPE,
+    });
     await registration.update().catch(() => {});
-    await navigator.serviceWorker.ready;
 
     messaging = getMessaging();
 
@@ -59,18 +62,4 @@ export async function initPush(uid: string): Promise<void> {
   } catch (err) {
     console.warn('[PUSH] registration failed', err);
   }
-}
-
-export function watchForegroundPush(
-  cb: (title: string, body: string, data?: Record<string, string>) => void
-) {
-  if (!messaging) return () => {};
-  return onMessage(messaging, (payload) => {
-    const data = (payload.data || {}) as Record<string, string>;
-    cb(
-      payload.notification?.title || data.title || 'Student Planner',
-      payload.notification?.body || data.body || '',
-      data
-    );
-  });
 }
