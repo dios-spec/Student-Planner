@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Megaphone, Info, Grid3x3, Bookmark, Bell } from 'lucide-react';
+import { Pencil, Megaphone, Info, Grid3x3, Bookmark, Bell, GraduationCap, ShieldCheck, Smile } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
@@ -14,17 +14,19 @@ import { useAuth } from '../context/AuthContext';
 import { useUserPosts } from '../hooks/useUserPosts';
 import MoodBadge from '../components/profile/MoodBadge';
 import MoodPicker from '../components/profile/MoodPicker';
-import { Smile } from 'lucide-react';
 import { CLASS_COLORS, isClassId } from '../data/classes';
+import RoleBadge from '../components/profile/RoleBadge';
+import TeacherVerificationModal from '../components/profile/TeacherVerificationModal';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, profile } = useAuth();
+  const { user, profile, isTeacher, claimsLoading } = useAuth();
   const { posts } = useUserPosts(user?.uid);
   const [editOpen, setEditOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [moodOpen, setMoodOpen] = useState(false);
+  const [teacherVerifyOpen, setTeacherVerifyOpen] = useState(false);
 
   if (!profile) return null;
 
@@ -50,6 +52,9 @@ export default function ProfilePage() {
                 </span>
               )}
             </div>
+            <div className="mt-1">
+              <RoleBadge teacher={isTeacher} />
+            </div>
             {profile.bio && <p className="truncate text-sm text-ink-soft">"{profile.bio}"</p>}
             <p className="mt-0.5 text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
           </div>
@@ -74,6 +79,33 @@ export default function ProfilePage() {
             <p className="text-xs text-ink-soft">Show a little badge on your profile</p>
           </div>
         </button>
+
+        {isTeacher ? (
+          <div className="flex w-full items-start gap-3 rounded-2xl border border-success/30 bg-success-soft p-4">
+            <span className="rounded-full bg-surface p-2.5 text-success">
+              <ShieldCheck size={20} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Verified teacher access</p>
+              <p className="mt-0.5 text-xs text-ink-soft">
+                Your role is protected by a signed Firebase claim and is ready for teacher features.
+              </p>
+            </div>
+          </div>
+        ) : (
+          <button
+            type="button"
+            onClick={() => setTeacherVerifyOpen(true)}
+            disabled={claimsLoading}
+            className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left disabled:opacity-60"
+          >
+            <GraduationCap size={20} className="text-accent" aria-hidden="true" />
+            <div className="flex-1">
+              <p className="text-sm font-semibold text-ink">Are you a teacher?</p>
+              <p className="text-xs text-ink-soft">Verify securely with the school teacher password</p>
+            </div>
+          </button>
+        )}
 
         <div>
           <div className="mb-2 flex items-center gap-2 px-1">
@@ -139,8 +171,11 @@ export default function ProfilePage() {
 
         <div className="flex items-start gap-2 rounded-2xl bg-surface-alt p-3.5 text-xs text-ink-soft">
           <Info size={14} className="mt-0.5 shrink-0" />
-          Your profile is anonymous — no email, phone number, or password. Anyone in your class can see your
-          name, photo, status and posts.
+          <span>
+            Your sign-in profile is anonymous — no email or phone number. Anyone in your class can see your
+            name, photo, status and posts. Teacher passwords are checked only by the server and are never saved
+            in your profile.
+          </span>
         </div>
       </div>
 
@@ -151,6 +186,7 @@ export default function ProfilePage() {
       <AnnouncementComposer open={announceOpen} onClose={() => setAnnounceOpen(false)} />
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       <MoodPicker open={moodOpen} onClose={() => setMoodOpen(false)} />
+      <TeacherVerificationModal open={teacherVerifyOpen} onClose={() => setTeacherVerifyOpen(false)} />
     </div>
   );
 }

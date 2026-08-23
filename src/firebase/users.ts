@@ -27,6 +27,7 @@ export async function ensureUserProfile(uid: string): Promise<void> {
     displayName: randomStudentName(),
     bio: '',
     emoji: '🙂',
+    role: 'student',
     createdAt: serverTimestamp(),
     lastSeen: serverTimestamp(),
   });

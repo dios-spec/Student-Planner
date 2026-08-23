@@ -16,6 +16,8 @@ import MoodBadge from './MoodBadge';
 import PresenceLabel from '../shared/PresenceLabel';
 import { CLASS_COLORS, isClassId } from '../../data/classes';
 import type { StudentProfile } from '../../types';
+import RoleBadge from './RoleBadge';
+import { isVerifiedTeacherProfile } from '../../utils/roles';
 
 interface ProfileViewProps {
   uid: string | null;
@@ -75,6 +77,9 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
                     {profile.classId}
                   </span>
                 )}
+              </div>
+              <div className="mt-1 flex justify-center">
+                <RoleBadge teacher={isVerifiedTeacherProfile(profile)} />
               </div>
               {profile.moodLabel && <p className="text-xs text-ink-soft">{profile.moodEmoji} {profile.moodLabel}</p>}
               {!isMe && <PresenceLabel profile={profile} className="mt-0.5 justify-center" />}

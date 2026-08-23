@@ -9,11 +9,25 @@ service cloud.firestore {
     function isOwner(uid) {
       return isSignedIn() && request.auth.uid == uid;
     }
+    function isTeacher() {
+      return isSignedIn() && request.auth.token.get('role', 'student') == 'teacher';
+    }
     function strLen(field, max) {
       return field is string && field.size() <= max;
     }
     function validClass(c) {
       return c in ['7A', '7B', '7C'];
+    }
+    function validProfileRole(data) {
+      return data.get('role', 'student') in ['student', 'teacher'];
+    }
+    function isStudentProfileCreate(data) {
+      return data.get('role', 'student') == 'student'
+        && !data.keys().hasAny(['teacherVerifiedAt', 'teacherVerifiedBy', 'teacherRoleVersion', 'roleUpdatedAt']);
+    }
+    function serverRoleFieldsUnchanged() {
+      return !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['role', 'teacherVerifiedAt', 'teacherVerifiedBy', 'teacherRoleVersion', 'roleUpdatedAt']);
     }
 
     // ---- Users / profiles ----
@@ -24,13 +38,24 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isOwner(uid)
         && strLen(request.resource.data.displayName, 24)
-        && strLen(request.resource.data.get('bio', ''), 80);
+        && strLen(request.resource.data.get('bio', ''), 80)
+        // A new client profile is always a student. Only the Admin SDK
+        // verification endpoint may add the teacher role and timestamp.
+        && isStudentProfileCreate(request.resource.data);
       allow update: if isOwner(uid)
         && strLen(request.resource.data.displayName, 24)
         && strLen(request.resource.data.get('bio', ''), 80)
+        && validProfileRole(request.resource.data)
+        && serverRoleFieldsUnchanged()
         // createdAt must never change after creation
         && request.resource.data.createdAt == resource.data.createdAt;
       allow delete: if false;
+    }
+
+    // Server-only rate-limit state for teacher verification. Admin SDK writes
+    // bypass Firestore Rules; no app client can inspect, reset or forge it.
+    match /teacherVerificationAttempts/{attemptId} {
+      allow read, write: if false;
     }
 
     // ---- Planner items: shared, editable by any signed-in student ----

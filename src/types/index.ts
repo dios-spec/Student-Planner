@@ -93,6 +93,8 @@ export interface NotificationSettings {
   quietHours?: QuietHours;
 }
 
+export type AppRole = 'student' | 'teacher';
+
 export interface StudentProfile {
   id: string; // == firebase uid
   displayName: string;
@@ -103,6 +105,9 @@ export interface StudentProfile {
   moodEmoji?: string;
   moodLabel?: string;
   onboarded?: boolean;
+  role?: AppRole;
+  teacherVerifiedAt?: Timestamp | null;
+  teacherRoleVersion?: number;
   createdAt: Timestamp | null;
   lastSeen?: Timestamp | null;
   notificationSettings?: NotificationSettings;
