@@ -125,7 +125,7 @@ export default function TimetablePage() {
       <div className="space-y-2 px-4 pt-4">
         {!loading && periods.length === 0 && (
           <EmptyState
-            emoji="ðŸ“…"
+            emoji={'\u{1F4C5}'}
             title="No periods yet"
             subtitle={`Tap + to add the first period for ${activeClass}.`}
           />
@@ -144,7 +144,7 @@ export default function TimetablePage() {
               <p className="truncate text-sm font-semibold text-ink">{period.subject}</p>
               {(period.teacher || period.room) && (
                 <p className="truncate text-xs text-ink-soft">
-                  {[period.teacher, period.room].filter(Boolean).join(' Â· ')}
+                  {[period.teacher, period.room].filter(Boolean).join(' / ')}
                 </p>
               )}
             </div>

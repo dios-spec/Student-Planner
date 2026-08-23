@@ -96,7 +96,7 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
           disabled={saving || !title.trim()}
           className="w-full rounded-full bg-accent py-3 text-sm font-semibold text-white disabled:opacity-50"
         >
-          {saving ? 'Postingâ€¦' : isTeacher ? `Post to ${targetClass}` : 'Post Announcement'}
+          {saving ? 'Posting...' : isTeacher ? `Post to ${targetClass}` : 'Post Announcement'}
         </button>
       </form>
     </Modal>

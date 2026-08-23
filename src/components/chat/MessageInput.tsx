@@ -18,7 +18,7 @@ interface MessageInputProps {
   placeholder?: string;
 }
 
-export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading, placeholder = 'Message the classâ€¦' }: MessageInputProps) {
+export default function MessageInput({ onSend, onSendImage, onSendVoice, onTyping, onCreatePoll, replyTo, onCancelReply, uploading, placeholder = 'Message the class...' }: MessageInputProps) {
   const [text, setText] = useState('');
   const [pickerOpen, setPickerOpen] = useState(false);
   const [warning, setWarning] = useState<string | null>(null);

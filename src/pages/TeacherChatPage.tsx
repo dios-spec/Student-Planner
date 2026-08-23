@@ -134,7 +134,7 @@ export default function TeacherChatPage() {
         {loading && <PlannerSkeleton />}
         {!loading && messages.length === 0 && (
           <EmptyState
-            emoji="ðŸ‘©â€ðŸ«"
+            emoji={'\u{1F469}\u200D\u{1F3EB}'}
             title="No teacher messages yet"
             subtitle="Start the teachers-only conversation."
           />
@@ -188,7 +188,7 @@ export default function TeacherChatPage() {
         replyTo={replyTo}
         onCancelReply={() => setReplyTo(null)}
         uploading={uploading}
-        placeholder="Message the teachersâ€¦"
+        placeholder="Message the teachers..."
       />
 
       <CreatePollSheet
