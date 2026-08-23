@@ -14,9 +14,9 @@ export default function StoryBar({ groups, onOpenGroup, onCreate }: StoryBarProp
 
   return (
     <div className="flex gap-3 overflow-x-auto px-4 py-3">
-      <button onClick={onCreate} className="flex w-16 shrink-0 flex-col items-center gap-1">
+      <button onClick={onCreate} className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1">
         <div className="relative">
-          <Avatar name={profile?.displayName || 'You'} src={profile?.avatarUrl} emoji={profile?.emoji} size="lg" />
+          <Avatar name={profile?.displayName || 'You'} src={profile?.avatarUrl} emoji={profile?.emoji} size="story" />
           <span className="absolute -bottom-0.5 -right-0.5 flex h-6 w-6 items-center justify-center rounded-full border-2 border-paper bg-accent text-white">
             <Plus size={13} strokeWidth={3} />
           </span>
@@ -30,7 +30,7 @@ export default function StoryBar({ groups, onOpenGroup, onCreate }: StoryBarProp
           <button
             key={group.authorId}
             onClick={() => onOpenGroup(i)}
-            className="flex w-16 shrink-0 flex-col items-center gap-1"
+            className="flex w-[4.5rem] shrink-0 flex-col items-center gap-1"
           >
             <div
               className={`rounded-full p-[2.5px] ${
@@ -38,7 +38,7 @@ export default function StoryBar({ groups, onOpenGroup, onCreate }: StoryBarProp
               }`}
             >
               <div className="rounded-full border-2 border-paper">
-                <Avatar name={group.authorName} src={group.authorAvatar} size="lg" />
+                <Avatar name={group.authorName} src={group.authorAvatar} size="story" />
               </div>
             </div>
             <span className="w-full truncate text-center text-xs text-ink-soft">

@@ -48,11 +48,12 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   return (
     <button
       role="switch"
+      type="button"
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={(checked ? 'bg-accent' : 'bg-line') + ' relative h-6 w-11 shrink-0 rounded-full transition-colors'}
     >
-      <span className={(checked ? 'translate-x-5' : 'translate-x-0.5') + ' absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform'} />
+      <span className={(checked ? 'translate-x-5' : 'translate-x-0') + ' absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform'} />
     </button>
   );
 }
@@ -76,7 +77,7 @@ export default function NotificationSettingsPage() {
   if (!profile) return null;
 
   return (
-    <div className="pb-24">
+    <div className="pb-8">
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-paper/95 px-2 py-3 pt-[env(safe-area-inset-top)] backdrop-blur">
         <button onClick={() => navigate(-1)} aria-label="Back" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
           <ArrowLeft size={20} />

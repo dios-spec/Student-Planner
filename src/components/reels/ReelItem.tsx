@@ -46,12 +46,17 @@ export default function ReelItem({
   function togglePlay() {
     const v = videoRef.current;
     if (!v) return;
-    if (v.paused) { v.play(); setPaused(false); } else { v.pause(); setPaused(true); }
+    if (v.paused) {
+      v.play().then(() => setPaused(false)).catch(() => setPaused(true));
+    } else {
+      v.pause();
+      setPaused(true);
+    }
   }
 
   return (
     <div className="relative h-full w-full snap-start bg-black">
-      <video ref={videoRef} src={reel.videoUrl} poster={reel.thumbUrl} loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full object-contain" />
+      <video ref={videoRef} src={reel.videoUrl} poster={reel.thumbUrl} loop muted={muted} playsInline onClick={togglePlay} className="h-full w-full object-cover" />
 
       {paused && (
         <button onClick={togglePlay} className="absolute inset-0 flex items-center justify-center" aria-label="Play">
@@ -59,7 +64,7 @@ export default function ReelItem({
         </button>
       )}
 
-      <button onClick={onToggleMute} aria-label={muted ? 'Unmute' : 'Mute'} className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] rounded-full bg-black/40 p-2 text-white">
+      <button onClick={onToggleMute} aria-label={muted ? 'Unmute' : 'Mute'} className="absolute left-4 top-[calc(env(safe-area-inset-top)+1rem)] z-10 rounded-full bg-black/60 p-2 text-white backdrop-blur-sm">
         {muted ? <VolumeX size={18} /> : <Volume2 size={18} />}
       </button>
 

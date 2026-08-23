@@ -32,7 +32,7 @@ export default function CategorySection({
         <h3 className="font-display text-sm font-semibold uppercase tracking-wide text-ink-soft">{meta.plural}</h3>
       </div>
       {items.length === 0 ? (
-        <EmptyState emoji="🎉" title={emptyLabel || 'Nothing here'} />
+        <EmptyState emoji="🎉" title={emptyLabel || 'Nothing here'} solid />
       ) : (
         <div className="space-y-2">
           {items.map((item) => (

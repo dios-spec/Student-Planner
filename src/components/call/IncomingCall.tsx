@@ -3,6 +3,8 @@ import { Phone, PhoneOff } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { startRingtone, stopRingtone } from '../../utils/ringtone';
 import { useAuth } from '../../context/AuthContext';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
+import { useLiveConversation } from '../../hooks/useLiveConversation';
 import type { CallDoc } from '../../types';
 
 /** Full-screen incoming-call UI with ringtone. Shown when the app is open. */
@@ -18,6 +20,12 @@ export default function IncomingCall({
   const isGroup = call.type === 'group';
   const { profile } = useAuth();
   const soundEnabled = profile?.notificationSettings?.sound !== false;
+  const profiles = useLiveProfiles([call.callerId]);
+  const conversation = useLiveConversation(call.conversationId);
+  const callerName = liveName(profiles, call.callerId, call.callerName);
+  const callerAvatar = liveAvatar(profiles, call.callerId, call.callerAvatar);
+  const groupName = conversation?.name || call.groupName || 'Group';
+  const groupPhoto = conversation?.photoUrl || call.groupPhoto;
 
   useEffect(() => {
     if (soundEnabled) startRingtone();
@@ -32,19 +40,19 @@ export default function IncomingCall({
           <span className="call-ring" aria-hidden="true" />
           <span className="call-ring call-ring-delay" aria-hidden="true" />
           <Avatar
-            name={isGroup ? call.groupName || 'Group' : call.callerName}
-            src={isGroup ? call.groupPhoto : call.callerAvatar}
+            name={isGroup ? groupName : callerName}
+            src={isGroup ? groupPhoto : callerAvatar}
             size="lg"
           />
         </div>
         <div className="mt-4 text-center">
           <h1 className="font-display text-2xl font-bold text-white">
-            {isGroup ? call.groupName : call.callerName}
+            {isGroup ? groupName : callerName}
           </h1>
           <p className="mt-1 text-sm text-white/60">
             {isGroup ? 'Incoming group voice call' : 'Incoming voice call'}
           </p>
-          {isGroup && <p className="text-xs text-white/50">{call.callerName} is calling</p>}
+          {isGroup && <p className="text-xs text-white/50">{callerName} is calling</p>}
         </div>
       </div>
 

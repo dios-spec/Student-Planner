@@ -103,7 +103,7 @@ export default function PlannerPage() {
             <TodaySummary items={items || []} />
 
             {!hasAnything && (
-              <EmptyState emoji="✅" title="All done!" subtitle="Nothing planned for this day yet." />
+              <EmptyState emoji="✅" title="All done!" subtitle="Nothing planned for this day yet." solid />
             )}
 
             {CATEGORY_ORDER.filter((c) => c !== 'important').map((cat) => (

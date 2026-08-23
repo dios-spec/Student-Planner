@@ -2,10 +2,15 @@ interface AvatarProps {
   name: string;
   src?: string;
   emoji?: string;
-  size?: 'sm' | 'md' | 'lg';
+  size?: 'sm' | 'md' | 'lg' | 'story';
 }
 
-const SIZES = { sm: 'h-8 w-8 text-sm', md: 'h-11 w-11 text-base', lg: 'h-20 w-20 text-3xl' };
+const SIZES = {
+  sm: 'h-8 w-8 text-sm',
+  md: 'h-11 w-11 text-base',
+  lg: 'h-20 w-20 text-3xl',
+  story: 'h-16 w-16 text-2xl',
+};
 
 const PALETTE = ['#4A55E1', '#E15B45', '#2F9E68', '#D98A2E', '#E0568C', '#12A594'];
 
@@ -21,7 +26,7 @@ export default function Avatar({ name, src, emoji, size = 'md' }: AvatarProps) {
       <img
         src={src}
         alt={name}
-        className={`${SIZES[size]} rounded-full object-cover ring-2 ring-surface`}
+        className={`${SIZES[size]} aspect-square max-w-none shrink-0 rounded-full object-cover ring-2 ring-surface`}
       />
     );
   }

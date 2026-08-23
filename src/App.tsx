@@ -1,5 +1,5 @@
 ﻿import { useState, lazy, Suspense } from 'react';
-import { BrowserRouter, Routes, Route } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { ToastProvider } from './context/ToastContext';
@@ -40,6 +40,12 @@ function PageFallback() {
 function BackgroundNotifier() {
   useBrowserNotifications();
   return null;
+}
+
+function AppNavigation() {
+  const { pathname } = useLocation();
+  if (pathname.startsWith('/settings/')) return null;
+  return <BottomNav />;
 }
 
 function AppShell() {
@@ -86,7 +92,7 @@ function AppShell() {
               <Route path="/profile" element={<ProfilePage />} />
             </Routes>
           </Suspense>
-          <BottomNav />
+          <AppNavigation />
         </div>
       </ActiveConversationProvider>
       </CallProvider>

@@ -23,7 +23,7 @@ export default function ReelsPage() {
   const { user } = useAuth();
   const { isSaved } = useSavedItems(user?.uid);
   const [activeIdx, setActiveIdx] = useState(0);
-  const [muted, setMuted] = useState(true);
+  const [muted, setMuted] = useState(false);
   const [uploadOpen, setUploadOpen] = useState(false);
   const [commentsFor, setCommentsFor] = useState<string | null>(null);
   const [shareContent, setShareContent] = useState<ShareContent | null>(null);
@@ -51,7 +51,10 @@ export default function ReelsPage() {
   }, [reels]);
 
   return (
-    <div className="fixed inset-0 z-30 bg-black">
+    <div
+      className="fixed inset-x-0 top-0 z-30 bg-black"
+      style={{ bottom: 'calc(3.5rem + env(safe-area-inset-bottom))' }}
+    >
       {loading && (
         <div className="flex h-full items-center justify-center">
           <div className="h-8 w-8 animate-spin rounded-full border-4 border-white/20 border-t-white" />

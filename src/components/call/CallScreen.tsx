@@ -4,6 +4,8 @@ import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
 import { leaveCall } from '../../firebase/calls';
 import { useAuth } from '../../context/AuthContext';
+import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
+import { useLiveConversation } from '../../hooks/useLiveConversation';
 import type { CallDoc } from '../../types';
 
 function fmt(sec: number) {
@@ -26,6 +28,12 @@ export default function CallScreen({
 
   const isGroup = call.type === 'group';
   const connected = call.status === 'connected';
+  const otherId = call.memberIds.find((m) => m !== user?.uid) || '';
+  const visibleProfileIds = isGroup
+    ? Object.entries(call.participants).filter(([, p]) => p.joined).map(([id]) => id)
+    : [otherId];
+  const profiles = useLiveProfiles(visibleProfileIds);
+  const conversation = useLiveConversation(call.conversationId);
 
   useEffect(() => {
     if (!connected) return;
@@ -35,8 +43,13 @@ export default function CallScreen({
   }, [connected]);
 
   const joinedParticipants = Object.entries(call.participants).filter(([, p]) => p.joined);
-  const title = isGroup ? call.groupName || 'Group call' : call.participants[call.memberIds.find((m) => m !== user?.uid) || '']?.name || call.callerName;
-  const photo = isGroup ? call.groupPhoto : call.participants[call.memberIds.find((m) => m !== user?.uid) || '']?.avatar;
+  const other = call.participants[otherId];
+  const title = isGroup
+    ? conversation?.name || call.groupName || 'Group call'
+    : liveName(profiles, otherId, other?.name || call.callerName);
+  const photo = isGroup
+    ? conversation?.photoUrl || call.groupPhoto
+    : liveAvatar(profiles, otherId, other?.avatar);
   const ringingOrConnecting = call.status === 'ringing' || call.status === 'connecting';
 
   async function hangUp() {
@@ -78,19 +91,23 @@ export default function CallScreen({
 
         {isGroup && (
           <div className="mt-4 flex flex-wrap justify-center gap-3">
-            {joinedParticipants.map(([id, p]) => (
-              <div key={id} className="animate-call-participant-in flex flex-col items-center gap-1">
-                <div className="relative">
-                  <Avatar name={p.name} src={p.avatar} size="md" />
-                  {p.muted && (
-                    <span className="absolute -bottom-1 -right-1 rounded-full bg-coral p-1 text-white">
-                      <MicOff size={10} />
-                    </span>
-                  )}
+            {joinedParticipants.map(([id, p]) => {
+              const participantName = liveName(profiles, id, p.name);
+              const participantAvatar = liveAvatar(profiles, id, p.avatar);
+              return (
+                <div key={id} className="animate-call-participant-in flex flex-col items-center gap-1">
+                  <div className="relative">
+                    <Avatar name={participantName} src={participantAvatar} size="md" />
+                    {p.muted && (
+                      <span className="absolute -bottom-1 -right-1 rounded-full bg-coral p-1 text-white">
+                        <MicOff size={10} />
+                      </span>
+                    )}
+                  </div>
+                  <span className="max-w-16 truncate text-xs text-white/70">{participantName}</span>
                 </div>
-                <span className="max-w-16 truncate text-xs text-white/70">{p.name}</span>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>

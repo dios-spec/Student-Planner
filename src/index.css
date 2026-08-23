@@ -16,6 +16,7 @@
   --color-coral-soft: #fbe7e3;
   --color-success: #2f9e68;
   --color-success-soft: #e4f5ec;
+  --planner-rule: rgba(231, 222, 208, 0.72);
 }
 
 :root.dark {
@@ -31,6 +32,7 @@
   --color-coral-soft: #3a2420;
   --color-success: #4fce93;
   --color-success-soft: #1c3629;
+  --planner-rule: rgba(131, 140, 255, 0.12);
 }
 
 @layer base {
@@ -57,14 +59,10 @@
     to bottom,
     transparent,
     transparent 35px,
-    var(--color-line) 35px,
-    var(--color-line) 36px
+    var(--planner-rule) 35px,
+    var(--planner-rule) 36px
   );
   background-attachment: local;
-  opacity: 1;
-}
-.dark .paper-texture {
-  opacity: 0.5;
 }
 
 /* Signature element: a spiral-notebook punch-hole rail used on section headers & the day card. */
