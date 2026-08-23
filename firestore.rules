@@ -352,6 +352,41 @@ service cloud.firestore {
       allow delete: if isSignedIn() && resource.data.userId == request.auth.uid;
     }
 
+
+    // ---- Merit / Demerit: live school points managed by verified teachers ----
+    // Signed-in users may read totals/history for profile display. Only a verified
+    // teacher claim can change records from the app. Firebase Console/Admin SDK
+    // can still correct or remove mistakes normally.
+    match /meritRecords/{recordId} {
+      allow read: if isSignedIn();
+
+      allow create: if isTeacher()
+        && request.resource.data.teacherId == request.auth.uid
+        && request.resource.data.studentId is string
+        && validClass(request.resource.data.classId)
+        && request.resource.data.kind in ['merit', 'demerit']
+        && request.resource.data.points is int
+        && request.resource.data.points >= 1
+        && request.resource.data.points <= 10
+        && strLen(request.resource.data.reason, 160)
+        && request.resource.data.createdAt == request.time;
+
+      // Practical correction path for verified teachers. Student clients still
+      // cannot edit their own points. Console/Admin can always correct mistakes.
+      allow update: if isTeacher()
+        && request.resource.data.studentId == resource.data.studentId
+        && request.resource.data.teacherId == resource.data.teacherId
+        && request.resource.data.createdAt == resource.data.createdAt
+        && validClass(request.resource.data.classId)
+        && request.resource.data.kind in ['merit', 'demerit']
+        && request.resource.data.points is int
+        && request.resource.data.points >= 1
+        && request.resource.data.points <= 10
+        && strLen(request.resource.data.reason, 160);
+
+      allow delete: if isTeacher();
+    }
+
     // ---- Reports: write-only from students, readable only via the console/admin ----
     match /reports/{id} {
       allow create: if isSignedIn() && request.resource.data.reporterId == request.auth.uid;

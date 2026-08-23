@@ -3,6 +3,7 @@ import Avatar from '../shared/Avatar';
 import type { StudentProfile } from '../../types';
 import RoleBadge from './RoleBadge';
 import { isVerifiedTeacherProfile } from '../../utils/roles';
+import MeritSummaryCard from '../merit/MeritSummaryCard';
 
 export default function ProfileCard({
   profile,
@@ -23,6 +24,9 @@ export default function ProfileCard({
             </div>
           </div>
           {profile.bio && <p className="text-sm italic text-ink-soft">"{profile.bio}"</p>}
+          <div className="w-full">
+            <MeritSummaryCard uid={profile.id} compact />
+          </div>
         </div>
       )}
     </Modal>

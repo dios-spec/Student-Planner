@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Pencil, Megaphone, Info, Grid3x3, Bookmark, Bell, GraduationCap, ShieldCheck, Smile } from 'lucide-react';
+import { Pencil, Megaphone, Info, Grid3x3, Bookmark, Bell, GraduationCap, ShieldCheck, Smile, Award } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import Avatar from '../components/shared/Avatar';
 import Modal from '../components/shared/Modal';
@@ -17,6 +17,7 @@ import MoodPicker from '../components/profile/MoodPicker';
 import { CLASS_COLORS, isClassId } from '../data/classes';
 import RoleBadge from '../components/profile/RoleBadge';
 import TeacherVerificationModal from '../components/profile/TeacherVerificationModal';
+import MeritSummaryCard from '../components/merit/MeritSummaryCard';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
@@ -66,6 +67,23 @@ export default function ProfilePage() {
             <Pencil size={16} />
           </button>
         </div>
+
+        <MeritSummaryCard uid={profile.id} />
+
+        <button
+          onClick={() => navigate('/merits')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
+        >
+          <Award size={18} className="text-accent" />
+          <div className="flex-1">
+            <p className="text-sm font-semibold text-ink">
+              {isTeacher ? 'Manage Merit & Demerit' : 'Merit, Demerit & Badges'}
+            </p>
+            <p className="text-xs text-ink-soft">
+              {isTeacher ? 'Award points to students by class' : 'See your live points, badges and history'}
+            </p>
+          </div>
+        </button>
 
         <button
           onClick={() => setMoodOpen(true)}

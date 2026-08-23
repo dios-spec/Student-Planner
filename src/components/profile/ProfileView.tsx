@@ -4,7 +4,7 @@ import Modal from '../shared/Modal';
 import Avatar from '../shared/Avatar';
 import EmptyState from '../shared/EmptyState';
 import ConfirmDialog from '../shared/ConfirmDialog';
-import { getUserProfileOnce } from '../../firebase/users';
+import { watchUserProfile } from '../../firebase/users';
 import { ensureDM } from '../../firebase/conversations';
 import { blockUser, unblockUser } from '../../firebase/blocks';
 import { reportMessage } from '../../firebase/chat';
@@ -18,6 +18,7 @@ import { CLASS_COLORS, isClassId } from '../../data/classes';
 import type { StudentProfile } from '../../types';
 import RoleBadge from './RoleBadge';
 import { isVerifiedTeacherProfile } from '../../utils/roles';
+import MeritSummaryCard from '../merit/MeritSummaryCard';
 
 interface ProfileViewProps {
   uid: string | null;
@@ -38,10 +39,15 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
   const isMe = uid === user?.uid;
 
   useEffect(() => {
-    if (!uid) return;
+    if (!uid) {
+      setProfile(null);
+      setLoadingProfile(false);
+      return;
+    }
+
     setLoadingProfile(true);
-    getUserProfileOnce(uid).then((p) => {
-      setProfile(p);
+    return watchUserProfile(uid, (nextProfile) => {
+      setProfile(nextProfile);
       setLoadingProfile(false);
     });
   }, [uid]);
@@ -86,6 +92,10 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
             </div>
             {profile.bio && <p className="text-sm italic text-ink-soft">"{profile.bio}"</p>}
             <p className="text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
+
+            <div className="w-full pt-2">
+              <MeritSummaryCard uid={profile.id} compact />
+            </div>
 
             {!isMe && (
               <div className="mt-2 flex items-center gap-2">

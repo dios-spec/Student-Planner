@@ -346,6 +346,21 @@ export interface AppNotification {
   createdAt: Timestamp | null;
 }
 
+
+// ---- Merit / Demerit + live badges ----
+export type MeritKind = 'merit' | 'demerit';
+
+export interface MeritRecord {
+  id: string;
+  studentId: string;
+  teacherId: string;
+  classId: string;
+  kind: MeritKind;
+  points: number;
+  reason: string;
+  createdAt: Timestamp | null;
+}
+
 // ---- Calls (WebRTC signalling) ----
 export type CallStatus =
   | 'ringing' | 'connecting' | 'connected' | 'ended' | 'declined' | 'missed' | 'unavailable';

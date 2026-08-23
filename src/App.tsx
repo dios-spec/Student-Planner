@@ -27,6 +27,7 @@ const NotificationsPage = lazy(() => import('./pages/NotificationsPage'));
 const TimetablePage = lazy(() => import('./pages/TimetablePage'));
 const SavedPage = lazy(() => import('./pages/SavedPage'));
 const NotificationSettingsPage = lazy(() => import('./pages/NotificationSettingsPage'));
+const MeritPage = lazy(() => import('./pages/MeritPage'));
 const Onboarding = lazy(() => import('./components/onboarding/Onboarding'));
 const PWAStatus = lazy(() => import('./components/pwa/PWAStatus'));
 
@@ -63,6 +64,7 @@ const ROUTE_TITLES: Record<string, string> = {
   '/timetable': 'Timetable',
   '/saved': 'Saved',
   '/settings/notifications': 'Notification Settings',
+  '/merits': 'Merit & Demerit',
   '/profile': 'Profile',
 };
 
@@ -129,6 +131,7 @@ function AppShell() {
                 <Route path="/timetable" element={<TimetablePage />} />
                 <Route path="/saved" element={<SavedPage />} />
                 <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
+                <Route path="/merits" element={<MeritPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
               </Routes>
             </Suspense>
