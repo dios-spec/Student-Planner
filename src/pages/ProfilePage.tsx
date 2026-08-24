@@ -174,8 +174,10 @@ export default function ProfilePage() {
           </div>
         </button>
 
-        <button
-          onClick={() => setAnnounceOpen(true)}
+        {isTeacher && (
+
+          <button
+            onClick={() => setAnnounceOpen(true)}
           className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
         >
           <Megaphone size={18} className="text-accent" />
@@ -184,6 +186,8 @@ export default function ProfilePage() {
             <p className="text-xs text-ink-soft">Share something the whole class should know</p>
           </div>
         </button>
+
+        )}
 
         <MyNotes />
 
@@ -201,7 +205,7 @@ export default function ProfilePage() {
         <EditProfileForm onDone={() => setEditOpen(false)} />
       </Modal>
 
-      <AnnouncementComposer open={announceOpen} onClose={() => setAnnounceOpen(false)} />
+      {isTeacher && <AnnouncementComposer open={announceOpen} onClose={() => setAnnounceOpen(false)} />}
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       <MoodPicker open={moodOpen} onClose={() => setMoodOpen(false)} />
       <TeacherVerificationModal open={teacherVerifyOpen} onClose={() => setTeacherVerifyOpen(false)} />

@@ -17,13 +17,15 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
   const [forDate, setForDate] = useState('');
   const [saving, setSaving] = useState(false);
 
+  if (!isTeacher) return null;
+
   useEffect(() => {
     if (open) setTargetClass(activeClass);
   }, [open, activeClass]);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
-    if (!user || !profile || !title.trim()) return;
+    if (!user || !profile || !isTeacher || !title.trim()) return;
 
     setSaving(true);
     try {

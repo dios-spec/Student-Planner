@@ -21,6 +21,15 @@ service cloud.firestore {
     function validClass(c) {
       return c in ['7A', '7B', '7C'];
     }
+    function myClass() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('classId', '');
+    }
+    function canAccessClass(c) {
+      return isSignedIn()
+        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+        && validClass(c)
+        && (isTeacher() || (isStudent() && myClass() == c));
+    }
     function validProfileRole(data) {
       return data.get('role', 'student') in ['student', 'teacher'];
     }
@@ -92,10 +101,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ---- Planner items: shared, editable by any signed-in student ----
+    // ---- Planner items: one shared class planner for students and teachers ----
     match /plannerItems/{itemId} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
+      allow read: if canAccessClass(resource.data.classId);
+      allow create: if canAccessClass(request.resource.data.classId)
         && request.resource.data.createdBy == request.auth.uid
         && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
@@ -105,21 +114,15 @@ service cloud.firestore {
         && request.resource.data.get('attachments', []).size() <= 4
         && request.resource.data.category in
              ['bring', 'reading', 'writing', 'test', 'project', 'important'];
-      // Edits and soft-deletes are allowed from any student (shared source of truth),
-      // but the original author/timestamps can't be rewritten, and updatedBy must be truthful.
-      allow update: if isSignedIn()
+      allow update: if canAccessClass(resource.data.classId)
+        && (isTeacher() || request.resource.data.classId == resource.data.classId)
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedBy == request.auth.uid
-        && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
-        && strLen(request.resource.data.get('description', ''), 400)
-        && strLen(request.resource.data.subject, 40)
-        && request.resource.data.category in
-             ['bring', 'reading', 'writing', 'test', 'project', 'important']
         && request.resource.data.get('attachments', []) is list
         && request.resource.data.get('attachments', []).size() <= 4;
-      allow delete: if false; // use soft-delete (the `deleted` flag) instead
+      allow delete: if false;
     }
 
     // ---- Personal completion state: only the owning user can read/write their own ----
@@ -143,17 +146,16 @@ service cloud.firestore {
         && strLen(request.resource.data.text, 300);
     }
 
-    // ---- Announcements: any student can post, nobody edits after posting ----
+    // ---- Announcements: shared to the class, published by verified teachers ----
     match /announcements/{id} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
+      allow read: if canAccessClass(resource.data.classId);
+      allow create: if isTeacher()
         && request.resource.data.createdBy == request.auth.uid
         && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
         && strLen(request.resource.data.get('body', ''), 400);
       allow update: if false;
-      // Only the author may delete their own announcement.
-      allow delete: if isSignedIn() && resource.data.createdBy == request.auth.uid;
+      allow delete: if isTeacher();
     }
 
     // ---- Posts: image feed. Anyone signed in can create/read; author-only delete. ----
@@ -240,10 +242,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- Study Help materials: class-scoped image library. Uploader-only delete. ----
+    // ---- Study Help: one shared class library for both roles ----
     match /studyMaterials/{id} {
-      allow read: if isSignedIn();
-      allow create: if isSignedIn()
+      allow read: if canAccessClass(resource.data.classId);
+      allow create: if canAccessClass(request.resource.data.classId)
         && request.resource.data.uploaderId == request.auth.uid
         && validClass(request.resource.data.classId)
         && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*')
@@ -254,7 +256,8 @@ service cloud.firestore {
         && request.resource.data.get('kind', 'notes') in
              ['notes', 'summary', 'formula-sheet', 'mind-map', 'question-paper', 'diagram', 'other'];
       allow update: if false;
-      allow delete: if isSignedIn() && resource.data.uploaderId == request.auth.uid;
+      allow delete: if canAccessClass(resource.data.classId)
+        && resource.data.uploaderId == request.auth.uid;
     }
 
     // ---- Comments on posts: anyone signed in can add/read; author-only delete. ----
@@ -535,10 +538,10 @@ service cloud.firestore {
         && (!('typing' in request.resource.data) || request.resource.data.typing is map);
     }
 
-    // ---- Timetable: one shared doc per class, editable by any signed-in student ----
+    // ---- Timetable: shared to view; verified teachers maintain it ----
     match /timetable/{classId} {
-      allow read: if isSignedIn();
-      allow write: if isSignedIn() && validClass(classId);
+      allow read: if canAccessClass(classId);
+      allow write: if isTeacher() && validClass(classId);
     }
 
     // ---- Saved items: fully private bookmarks, owner-only ----

@@ -6,7 +6,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useActiveClass } from '../../context/ClassContext';
 
 export default function AnnouncementsStrip() {
-  const { user } = useAuth();
+  const { isTeacher } = useAuth();
   const { activeClass } = useActiveClass();
   const { announcements } = useAnnouncements(activeClass);
   const latest = (announcements || []).slice(0, 3);
@@ -25,7 +25,7 @@ export default function AnnouncementsStrip() {
             {a.body && <p className="text-xs text-ink-soft">{a.body}</p>}
             <p className="mt-0.5 text-[11px] text-ink-soft/70">by {a.createdByName}</p>
           </div>
-          {a.createdBy === user?.uid && (
+          {isTeacher && (
             <button
               onClick={() => deleteAnnouncement(a.id)}
               aria-label="Delete announcement"

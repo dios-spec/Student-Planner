@@ -9,35 +9,22 @@ import AddPeriodSheet from '../components/timetable/AddPeriodSheet';
 import ClassSelector from '../components/layout/ClassSelector';
 import ConfirmDialog from '../components/shared/ConfirmDialog';
 import EmptyState from '../components/shared/EmptyState';
-import { useToast } from '../context/ToastContext';
 import type { Timetable, TimetableDayKey, TimetablePeriod } from '../types';
 
 const DAY_LABELS: Record<TimetableDayKey, string> = {
-  mon: 'Mon',
-  tue: 'Tue',
-  wed: 'Wed',
-  thu: 'Thu',
-  fri: 'Fri',
-  sat: 'Sat',
+  mon: 'Mon', tue: 'Tue', wed: 'Wed', thu: 'Thu', fri: 'Fri', sat: 'Sat',
 };
 
 function todayKeyOf(): TimetableDayKey {
   const map: Record<number, TimetableDayKey> = {
-    1: 'mon',
-    2: 'tue',
-    3: 'wed',
-    4: 'thu',
-    5: 'fri',
-    6: 'sat',
-    0: 'mon',
+    1: 'mon', 2: 'tue', 3: 'wed', 4: 'thu', 5: 'fri', 6: 'sat', 0: 'mon',
   };
   return map[new Date().getDay()];
 }
 
 export default function TimetablePage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
-  const { show } = useToast();
+  const { user, isTeacher } = useAuth();
   const { activeClass } = useActiveClass();
   const { timetable, loading } = useTimetable(activeClass);
   const [day, setDay] = useState<TimetableDayKey>(todayKeyOf());
@@ -45,57 +32,28 @@ export default function TimetablePage() {
   const [editingPeriod, setEditingPeriod] = useState<TimetablePeriod | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<TimetablePeriod | null>(null);
 
-  const emptyDays: Timetable['days'] = {
-    mon: [],
-    tue: [],
-    wed: [],
-    thu: [],
-    fri: [],
-    sat: [],
-  };
-
-  const periods = ((timetable && timetable.days && timetable.days[day]) || [])
-    .slice()
-    .sort((a, b) => a.period - b.period);
+  const emptyDays: Timetable['days'] = { mon: [], tue: [], wed: [], thu: [], fri: [], sat: [] };
+  const periods = (timetable?.days?.[day] || []).slice().sort((a, b) => a.period - b.period);
 
   async function upsertPeriod(period: TimetablePeriod) {
-    if (!user) return;
-    const currentDays = (timetable && timetable.days) || emptyDays;
+    if (!user || !isTeacher) return;
+    const currentDays = timetable?.days || emptyDays;
     const dayList = (currentDays[day] || []).filter((p) => p.period !== period.period);
     dayList.push(period);
-    const nextDays = Object.assign({}, currentDays, { [day]: dayList });
-
-    try {
-      await saveTimetable(activeClass, nextDays, user.uid);
-      show(`Timetable updated for ${activeClass}`);
-    } catch {
-      show("Couldn't update timetable.");
-      throw new Error('Timetable update failed');
-    }
+    await saveTimetable(activeClass, { ...currentDays, [day]: dayList }, user.uid);
   }
 
   async function removePeriod(period: TimetablePeriod) {
-    if (!user) return;
-    const currentDays = (timetable && timetable.days) || emptyDays;
+    if (!user || !isTeacher) return;
+    const currentDays = timetable?.days || emptyDays;
     const dayList = (currentDays[day] || []).filter((p) => p.period !== period.period);
-    const nextDays = Object.assign({}, currentDays, { [day]: dayList });
-
-    try {
-      await saveTimetable(activeClass, nextDays, user.uid);
-      show(`Period removed from ${activeClass}`);
-    } catch {
-      show("Couldn't update timetable.");
-    }
+    await saveTimetable(activeClass, { ...currentDays, [day]: dayList }, user.uid);
   }
 
   return (
     <div className="pb-24">
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-paper/95 px-2 py-3 pt-[env(safe-area-inset-top)] backdrop-blur">
-        <button
-          onClick={() => navigate(-1)}
-          aria-label="Back"
-          className="rounded-full p-2 text-ink-soft hover:bg-surface-alt"
-        >
+        <button onClick={() => navigate(-1)} aria-label="Back" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
           <ArrowLeft size={20} />
         </button>
         <p className="font-display text-lg font-semibold text-ink">Timetable - {activeClass}</p>
@@ -106,18 +64,13 @@ export default function TimetablePage() {
       </div>
 
       <div className="flex gap-1.5 overflow-x-auto px-4 pt-4">
-        {DAY_KEYS.map((key) => (
+        {DAY_KEYS.map((k) => (
           <button
-            key={key}
-            onClick={() => setDay(key)}
-            className={
-              (day === key
-                ? 'border-accent bg-accent-soft text-accent'
-                : 'border-line text-ink-soft') +
-              ' shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium'
-            }
+            key={k}
+            onClick={() => setDay(k)}
+            className={(day === k ? 'border-accent bg-accent-soft text-accent' : 'border-line text-ink-soft') + ' shrink-0 rounded-full border px-3.5 py-1.5 text-sm font-medium'}
           >
-            {DAY_LABELS[key]}
+            {DAY_LABELS[k]}
           </button>
         ))}
       </div>
@@ -125,83 +78,75 @@ export default function TimetablePage() {
       <div className="space-y-2 px-4 pt-4">
         {!loading && periods.length === 0 && (
           <EmptyState
-            emoji={'\u{1F4C5}'}
+            emoji={'📅'}
             title="No periods yet"
-            subtitle={`Tap + to add the first period for ${activeClass}.`}
+            subtitle={isTeacher ? 'Tap + to add the first period for this day.' : 'No timetable has been added for this day yet.'}
           />
         )}
 
-        {periods.map((period) => (
-          <div
-            key={period.period}
-            className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5"
-          >
+        {periods.map((p) => (
+          <div key={p.period} className="flex items-center gap-3 rounded-2xl border border-line bg-surface p-3.5">
             <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-accent-soft text-sm font-bold text-accent">
-              {period.period}
+              {p.period}
             </span>
-
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-semibold text-ink">{period.subject}</p>
-              {(period.teacher || period.room) && (
-                <p className="truncate text-xs text-ink-soft">
-                  {[period.teacher, period.room].filter(Boolean).join(' / ')}
-                </p>
+              <p className="truncate text-sm font-semibold text-ink">{p.subject}</p>
+              {(p.teacher || p.room) && (
+                <p className="truncate text-xs text-ink-soft">{[p.teacher, p.room].filter(Boolean).join(' / ')}</p>
               )}
             </div>
 
-            <button
-              onClick={() => {
-                setEditingPeriod(period);
-                setSheetOpen(true);
-              }}
-              aria-label="Edit period"
-              className="rounded-full p-1.5 text-ink-soft hover:text-accent"
-            >
-              <Pencil size={15} />
-            </button>
-
-            <button
-              onClick={() => setDeleteTarget(period)}
-              aria-label="Delete period"
-              className="rounded-full p-1.5 text-ink-soft hover:text-coral"
-            >
-              <Trash2 size={15} />
-            </button>
+            {isTeacher && (
+              <>
+                <button
+                  onClick={() => { setEditingPeriod(p); setSheetOpen(true); }}
+                  aria-label="Edit period"
+                  className="rounded-full p-1.5 text-ink-soft hover:text-accent"
+                >
+                  <Pencil size={15} />
+                </button>
+                <button
+                  onClick={() => setDeleteTarget(p)}
+                  aria-label="Delete period"
+                  className="rounded-full p-1.5 text-ink-soft hover:text-coral"
+                >
+                  <Trash2 size={15} />
+                </button>
+              </>
+            )}
           </div>
         ))}
       </div>
 
-      <button
-        onClick={() => {
-          setEditingPeriod(null);
-          setSheetOpen(true);
-        }}
-        className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
-      >
-        <Plus size={18} strokeWidth={2.5} />
-        Add Period
-      </button>
+      {isTeacher && (
+        <>
+          <button
+            onClick={() => { setEditingPeriod(null); setSheetOpen(true); }}
+            className="fixed bottom-[calc(5rem+env(safe-area-inset-bottom))] right-5 z-30 flex items-center gap-2 rounded-full bg-accent px-5 py-3.5 text-sm font-semibold text-white shadow-lg active:scale-95 sm:bottom-8"
+          >
+            <Plus size={18} strokeWidth={2.5} />
+            Add Period
+          </button>
 
-      <AddPeriodSheet
-        open={sheetOpen}
-        onClose={() => setSheetOpen(false)}
-        editingPeriod={editingPeriod}
-        existingPeriodNumbers={periods.map((period) => period.period)}
-        onSave={upsertPeriod}
-      />
+          <AddPeriodSheet
+            open={sheetOpen}
+            onClose={() => setSheetOpen(false)}
+            editingPeriod={editingPeriod}
+            existingPeriodNumbers={periods.map((p) => p.period)}
+            onSave={upsertPeriod}
+          />
 
-      <ConfirmDialog
-        open={!!deleteTarget}
-        title="Delete period?"
-        message={`This period will be removed from the ${activeClass} timetable for everyone.`}
-        confirmLabel="Delete"
-        danger
-        onConfirm={() => {
-          if (deleteTarget) void removePeriod(deleteTarget);
-          setDeleteTarget(null);
-        }}
-        onCancel={() => setDeleteTarget(null)}
-      />
+          <ConfirmDialog
+            open={!!deleteTarget}
+            title="Delete period?"
+            message="This period will be removed from the shared timetable."
+            confirmLabel="Delete"
+            danger
+            onConfirm={() => { if (deleteTarget) removePeriod(deleteTarget); setDeleteTarget(null); }}
+            onCancel={() => setDeleteTarget(null)}
+          />
+        </>
+      )}
     </div>
   );
 }
