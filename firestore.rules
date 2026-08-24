@@ -21,15 +21,6 @@ service cloud.firestore {
     function validClass(c) {
       return c in ['7A', '7B', '7C'];
     }
-    function myClass() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('classId', '');
-    }
-    function canAccessClass(c) {
-      return isSignedIn()
-        && exists(/databases/$(database)/documents/users/$(request.auth.uid))
-        && validClass(c)
-        && (isTeacher() || (isStudent() && myClass() == c));
-    }
     function validProfileRole(data) {
       return data.get('role', 'student') in ['student', 'teacher'];
     }
