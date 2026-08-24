@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Mic, MicOff, PhoneOff, Volume2 } from 'lucide-react';
+import { Maximize2, Mic, MicOff, Minimize2, PhoneOff, Volume2 } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
 import { leaveCall } from '../../firebase/calls';
@@ -18,9 +18,15 @@ function fmt(sec: number) {
 export default function CallScreen({
   call,
   onClose,
+  minimized,
+  onMinimize,
+  onRestore,
 }: {
   call: CallDoc;
   onClose: () => void;
+  minimized: boolean;
+  onMinimize: () => void;
+  onRestore: () => void;
 }) {
   const { user } = useAuth();
   const { muted, toggleMute } = useWebRTCCall(call.id, user?.uid || null, call);
@@ -58,8 +64,65 @@ export default function CallScreen({
     onClose();
   }
 
+  if (minimized) {
+    return (
+      <div className="fixed right-3 top-[calc(env(safe-area-inset-top)+0.75rem)] z-[220] w-[min(22rem,calc(100vw-1.5rem))] rounded-2xl border border-white/10 bg-[#121520]/95 p-3 text-white shadow-2xl backdrop-blur-xl">
+        <div className="flex items-center gap-3">
+          <button
+            onClick={onRestore}
+            className="flex min-w-0 flex-1 items-center gap-3 text-left"
+            aria-label="Return to full call"
+          >
+            <div className="relative shrink-0">
+              <Avatar name={title} src={photo} size="sm" />
+              {connected && <span className="absolute -bottom-0.5 -right-0.5 h-3 w-3 rounded-full border-2 border-[#121520] bg-success" />}
+            </div>
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold">{title}</p>
+              <p className="text-xs text-white/60">
+                {connected ? fmt(elapsed) : call.status === 'ringing' ? 'Calling...' : call.status === 'connecting' ? 'Connecting...' : call.status}
+              </p>
+            </div>
+          </button>
+
+          <button
+            onClick={toggleMute}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${muted ? 'bg-white text-ink' : 'bg-white/10 text-white'}`}
+            aria-label={muted ? 'Unmute' : 'Mute'}
+          >
+            {muted ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+
+          <button
+            onClick={hangUp}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-coral text-white"
+            aria-label="End call"
+          >
+            <PhoneOff size={16} />
+          </button>
+
+          <button
+            onClick={onRestore}
+            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white"
+            aria-label="Expand call"
+          >
+            <Maximize2 size={16} />
+          </button>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="fixed inset-0 z-[200] flex flex-col items-center justify-between bg-gradient-to-b from-[#1a1d29] to-[#0e1016] px-6 py-12 pt-[calc(env(safe-area-inset-top)+3rem)]">
+      <button
+        onClick={onMinimize}
+        className="absolute right-4 top-[calc(env(safe-area-inset-top)+1rem)] flex h-10 w-10 items-center justify-center rounded-full bg-white/10 text-white transition hover:bg-white/20"
+        aria-label="Minimize call"
+        title="Minimize call"
+      >
+        <Minimize2 size={19} />
+      </button>
       <div className="flex flex-col items-center gap-4">
         <div className={`relative flex items-center justify-center ${isGroup ? '' : 'scale-150'}`}>
           {!connected && (

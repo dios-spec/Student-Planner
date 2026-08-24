@@ -45,11 +45,28 @@ export default function ChatPage() {
   const [uploading, setUploading] = useState(false);
   const [viewUid, setViewUid] = useState<string | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messageListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ block: 'end' });
-  }, [messages?.length]);
+    if (loading) return;
+
+    const scrollToLatest = () => {
+      const el = messageListRef.current;
+      if (!el) return;
+      el.scrollTo({ top: el.scrollHeight, behavior: 'auto' });
+    };
+
+    scrollToLatest();
+    const frame = window.requestAnimationFrame(scrollToLatest);
+    const timer1 = window.setTimeout(scrollToLatest, 120);
+    const timer2 = window.setTimeout(scrollToLatest, 500);
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer1);
+      window.clearTimeout(timer2);
+    };
+  }, [loading, messages?.length]);
 
   if (!user || !profile) return null;
 
@@ -145,7 +162,7 @@ export default function ChatPage() {
 
       <PinnedBar pinned={pinned} onUnpin={unpinClassMessage} />
 
-      <div className="social-texture flex-1 space-y-3 overflow-y-auto px-3 py-3">
+      <div ref={messageListRef} className="social-texture flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
         {!loading && messages?.length === 0 && (
           <EmptyState emoji="💬" title="No messages yet" subtitle="Say hi to the class!" />
@@ -182,7 +199,7 @@ export default function ChatPage() {
               : saveItem({ userId: user.uid, type: 'message', refId: m.id, title: m.text || 'Message', imageUrl: m.imageUrl, authorName: m.senderName })}
           />
         ))}
-        <div ref={bottomRef} />
+        <div aria-hidden="true" className="h-px" />
       </div>
 
       <TypingIndicator names={typingNames} />

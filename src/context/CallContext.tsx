@@ -25,6 +25,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
   const [incoming, setIncoming] = useState<CallDoc | null>(null);
   const [activeCallId, setActiveCallId] = useState<string | null>(null);
   const [activeCall, setActiveCall] = useState<CallDoc | null>(null);
+  const [callMinimized, setCallMinimized] = useState(false);
 
   // Prime Web Audio on the first real gesture so later incoming calls can ring.
   useEffect(() => {
@@ -108,6 +109,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
       if (!c || c.status === 'ended' || c.status === 'declined' || c.status === 'missed' || c.status === 'unavailable') {
         setActiveCallId(null);
         setActiveCall(null);
+        setCallMinimized(false);
       }
     });
   }, [activeCallId]);
@@ -123,12 +125,14 @@ const createdCall = await startCallSvc(
     // Firestore listener will replace this with the server version.
     setActiveCall(createdCall);
     setActiveCallId(createdCall.id);
+    setCallMinimized(false);
   }, [user]);
 
   async function accept() {
     if (!incoming || !user) return;
     await joinCall(incoming.id, user.uid);
     setActiveCallId(incoming.id);
+    setCallMinimized(false);
     setIncoming(null);
   }
 
@@ -142,7 +146,16 @@ const createdCall = await startCallSvc(
     <CallContext.Provider value={{ startCall, inCall: !!activeCall }}>
       {children}
       {activeCall && (
-        <CallScreen call={activeCall} onClose={() => setActiveCallId(null)} />
+        <CallScreen
+          call={activeCall}
+          minimized={callMinimized}
+          onMinimize={() => setCallMinimized(true)}
+          onRestore={() => setCallMinimized(false)}
+          onClose={() => {
+            setActiveCallId(null);
+            setCallMinimized(false);
+          }}
+        />
       )}
       {incoming && !activeCall && (
         <IncomingCall call={incoming} onAccept={accept} onDecline={decline} />
