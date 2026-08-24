@@ -101,10 +101,10 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
-    // ---- Planner items: one shared class planner for students and teachers ----
+    // ---- Planner items: shared across selectable classes ----
     match /plannerItems/{itemId} {
-      allow read: if canAccessClass(resource.data.classId);
-      allow create: if canAccessClass(request.resource.data.classId)
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
         && request.resource.data.createdBy == request.auth.uid
         && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
@@ -114,11 +114,11 @@ service cloud.firestore {
         && request.resource.data.get('attachments', []).size() <= 4
         && request.resource.data.category in
              ['bring', 'reading', 'writing', 'test', 'project', 'important'];
-      allow update: if canAccessClass(resource.data.classId)
-        && (isTeacher() || request.resource.data.classId == resource.data.classId)
+      allow update: if isSignedIn()
         && request.resource.data.createdBy == resource.data.createdBy
         && request.resource.data.createdAt == resource.data.createdAt
         && request.resource.data.updatedBy == request.auth.uid
+        && validClass(request.resource.data.classId)
         && strLen(request.resource.data.title, 120)
         && request.resource.data.get('attachments', []) is list
         && request.resource.data.get('attachments', []).size() <= 4;
@@ -146,9 +146,9 @@ service cloud.firestore {
         && strLen(request.resource.data.text, 300);
     }
 
-    // ---- Announcements: shared to the class, published by verified teachers ----
+    // ---- Announcements: shared to view; verified teachers publish/delete ----
     match /announcements/{id} {
-      allow read: if canAccessClass(resource.data.classId);
+      allow read: if isSignedIn();
       allow create: if isTeacher()
         && request.resource.data.createdBy == request.auth.uid
         && validClass(request.resource.data.classId)
@@ -242,10 +242,10 @@ service cloud.firestore {
       allow delete: if false;
     }
 
-    // ---- Study Help: one shared class library for both roles ----
+    // ---- Study Help: shared across selectable classes ----
     match /studyMaterials/{id} {
-      allow read: if canAccessClass(resource.data.classId);
-      allow create: if canAccessClass(request.resource.data.classId)
+      allow read: if isSignedIn();
+      allow create: if isSignedIn()
         && request.resource.data.uploaderId == request.auth.uid
         && validClass(request.resource.data.classId)
         && request.resource.data.imageUrl.matches('https://res\\.cloudinary\\.com/.*')
@@ -256,7 +256,7 @@ service cloud.firestore {
         && request.resource.data.get('kind', 'notes') in
              ['notes', 'summary', 'formula-sheet', 'mind-map', 'question-paper', 'diagram', 'other'];
       allow update: if false;
-      allow delete: if canAccessClass(resource.data.classId)
+      allow delete: if isSignedIn()
         && resource.data.uploaderId == request.auth.uid;
     }
 
@@ -538,9 +538,9 @@ service cloud.firestore {
         && (!('typing' in request.resource.data) || request.resource.data.typing is map);
     }
 
-    // ---- Timetable: shared to view; verified teachers maintain it ----
+    // ---- Timetable: every signed-in user can view a selected class; teachers edit ----
     match /timetable/{classId} {
-      allow read: if canAccessClass(classId);
+      allow read: if isSignedIn() && validClass(classId);
       allow write: if isTeacher() && validClass(classId);
     }
 

@@ -10,28 +10,25 @@ interface ClassContextValue {
 const ClassContext = createContext<ClassContextValue | undefined>(undefined);
 
 export function ClassProvider({ children }: { children: ReactNode }) {
-  const { profile, isTeacher } = useAuth();
+  const { profile } = useAuth();
 
-  const studentClass: ClassId =
-    profile?.classId && isClassId(profile.classId) ? profile.classId : CLASSES[0];
-
-  const [teacherClass, setTeacherClass] = useState<ClassId>(() => {
+  const [activeClass, setActiveClassState] = useState<ClassId>(() => {
     const stored = localStorage.getItem('sbp_active_class');
-    return isClassId(stored) ? stored : studentClass;
+    return isClassId(stored) ? stored : CLASSES[0];
   });
 
+  // Default to the profile class only when this browser has not chosen a class yet.
   useEffect(() => {
-    // A stale teacher target must never carry into a student session.
-    if (!isTeacher) localStorage.removeItem('sbp_active_class');
-  }, [isTeacher]);
+    const stored = localStorage.getItem('sbp_active_class');
+    if (!stored && profile?.classId && isClassId(profile.classId)) {
+      setActiveClassState(profile.classId);
+    }
+  }, [profile?.classId]);
 
-  const activeClass = isTeacher ? teacherClass : studentClass;
-
-  function setActiveClass(c: ClassId) {
-    if (!isTeacher) return;
+  const setActiveClass = (c: ClassId) => {
     localStorage.setItem('sbp_active_class', c);
-    setTeacherClass(c);
-  }
+    setActiveClassState(c);
+  };
 
   return (
     <ClassContext.Provider value={{ activeClass, setActiveClass }}>
