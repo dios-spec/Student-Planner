@@ -13,7 +13,9 @@ import type { CallDoc } from '../types';
  */
 export function useWebRTCCall(callId: string | null, myUid: string | null, call: CallDoc | null) {
   const [muted, setMutedState] = useState(false);
+  const [speakerOn, setSpeakerOn] = useState(true);
   const [remoteSpeaking, setRemoteSpeaking] = useState<Record<string, boolean>>({});
+  const speakerOnRef = useRef(true);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
@@ -51,6 +53,7 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
         if (!el) {
           el = new Audio();
           el.autoplay = true;
+          el.muted = !speakerOnRef.current;
           el.setAttribute('playsinline', 'true');
           el.style.display = 'none';
           document.body.appendChild(el);
@@ -135,6 +138,22 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
     if (callId && myUid) setMutedRemote(callId, myUid, next);
   }, [muted, callId, myUid]);
 
+  const toggleSpeaker = useCallback(() => {
+    const next = !speakerOnRef.current;
+    speakerOnRef.current = next;
+    setSpeakerOn(next);
+
+    audioElsRef.current.forEach((el) => {
+      el.muted = !next;
+
+      // Turning speaker back on happens from a real user tap, so retry play()
+      // immediately in case the browser had previously blocked autoplay.
+      if (next) {
+        void el.play().catch(() => {});
+      }
+    });
+  }, []);
+
   const cleanup = useCallback(() => {
     unsubsRef.current.forEach((u) => u());
     unsubsRef.current = [];
@@ -153,5 +172,5 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
 
   useEffect(() => cleanup, [cleanup]);
 
-  return { muted, toggleMute, ensureLocalStream, cleanup, remoteSpeaking, setRemoteSpeaking };
+  return { muted, toggleMute, speakerOn, toggleSpeaker, ensureLocalStream, cleanup, remoteSpeaking, setRemoteSpeaking };
 }

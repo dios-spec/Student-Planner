@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Maximize2, Mic, MicOff, Minimize2, PhoneOff, Volume2 } from 'lucide-react';
+import { Maximize2, Mic, MicOff, Minimize2, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
 import { leaveCall } from '../../firebase/calls';
@@ -29,7 +29,7 @@ export default function CallScreen({
   onRestore: () => void;
 }) {
   const { user } = useAuth();
-  const { muted, toggleMute } = useWebRTCCall(call.id, user?.uid || null, call);
+  const { muted, toggleMute, speakerOn, toggleSpeaker } = useWebRTCCall(call.id, user?.uid || null, call);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
 
@@ -91,6 +91,15 @@ export default function CallScreen({
             aria-label={muted ? 'Unmute' : 'Mute'}
           >
             {muted ? <MicOff size={16} /> : <Mic size={16} />}
+          </button>
+
+          <button
+            onClick={toggleSpeaker}
+            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${speakerOn ? 'bg-white/10 text-white' : 'bg-white text-ink'}`}
+            aria-label={speakerOn ? 'Turn speaker off' : 'Turn speaker on'}
+            title={speakerOn ? 'Speaker on' : 'Speaker off'}
+          >
+            {speakerOn ? <Volume2 size={16} /> : <VolumeX size={16} />}
           </button>
 
           <button
@@ -187,8 +196,13 @@ export default function CallScreen({
           {muted ? <MicOff size={22} /> : <Mic size={22} />}
         </button>
 
-        <button className="flex h-14 w-14 items-center justify-center rounded-full bg-white/15 text-white" aria-label="Speaker">
-          <Volume2 size={22} />
+        <button
+          onClick={toggleSpeaker}
+          className={`flex h-14 w-14 items-center justify-center rounded-full transition-colors duration-200 ${speakerOn ? 'bg-white/15 text-white' : 'bg-white text-ink'}`}
+          aria-label={speakerOn ? 'Turn speaker off' : 'Turn speaker on'}
+          title={speakerOn ? 'Speaker on' : 'Speaker off'}
+        >
+          {speakerOn ? <Volume2 size={22} /> : <VolumeX size={22} />}
         </button>
 
         <button onClick={hangUp} className="flex h-16 w-16 items-center justify-center rounded-full bg-coral text-white" aria-label="End call">
