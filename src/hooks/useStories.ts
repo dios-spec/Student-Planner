@@ -12,22 +12,28 @@ export interface StoryGroup {
 
 export function useStories() {
   // BUG-14: watchActiveStories freezes "now" into its query at subscribe time,
-  // and the cache key never changed -- so stories that expired while the app
-  // stayed open remained visible until a full reload. Rolling the key every
-  // 5 minutes forces a fresh subscription with a fresh cutoff.
-  const [bucket, setBucket] = useState(() => Math.floor(Date.now() / 300_000));
+  // so stories that expire while the app stays open used to linger until a
+  // reload. Rolling the CACHE KEY was the wrong fix (it leaked a cache entry
+  // per interval and re-flashed the loading skeleton). Instead: keep one stable
+  // subscription and drop expired stories on the client, re-evaluated on a tick.
+  const { data: rawStories, loading } = useCachedSnapshot<Story[]>(
+    'stories',
+    watchActiveStories
+  );
+
+  const [nowMs, setNowMs] = useState(() => Date.now());
   useEffect(() => {
-    const id = window.setInterval(
-      () => setBucket(Math.floor(Date.now() / 300_000)),
-      60_000
-    );
+    const id = window.setInterval(() => setNowMs(Date.now()), 60_000);
     return () => window.clearInterval(id);
   }, []);
 
-  const { data: stories, loading } = useCachedSnapshot<Story[]>(
-    `stories:${bucket}`,
-    watchActiveStories
-  );
+  const stories = useMemo(() => {
+    if (!rawStories) return rawStories;
+    return rawStories.filter((s) => {
+      const exp = s.expiresAt?.toMillis?.();
+      return exp === undefined || exp > nowMs;
+    });
+  }, [rawStories, nowMs]);
 
   const groups = useMemo<StoryGroup[]>(() => {
     const next: StoryGroup[] = [];

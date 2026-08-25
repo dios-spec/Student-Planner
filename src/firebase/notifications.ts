@@ -139,7 +139,12 @@ export async function pushToMany(
       );
       ids.push(ref.id);
     }
-    await batch.commit();
+    // A batch is atomic -- guard so one rejected chunk cannot silence the rest.
+    try {
+      await batch.commit();
+    } catch (err) {
+      console.error('[NOTIF] batch commit failed for a chunk:', err);
+    }
   }
 
   // Fire pushes in the background with bounded concurrency so we never open

@@ -39,6 +39,9 @@ export default function VoicePlayer({
       audio.removeEventListener('timeupdate', onTime);
       audio.removeEventListener('loadedmetadata', onMeta);
       audio.removeEventListener('ended', onEnd);
+      // BUG-27: stop playback on unmount, otherwise a voice note keeps playing
+      // after the chat screen closes with no way to stop it.
+      try { audio.pause(); } catch { /* ignore */ }
     };
   }, []);
 

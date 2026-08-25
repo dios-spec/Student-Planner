@@ -1,4 +1,4 @@
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 
 interface RecorderState {
   recording: boolean;
@@ -22,6 +22,21 @@ export function useVoiceRecorder() {
     streamRef.current?.getTracks().forEach((t) => t.stop());
     streamRef.current = null;
     mediaRef.current = null;
+  }, []);
+
+  // BUG-26: release the microphone if the component unmounts mid-recording.
+  // Without this the mic stream stays open for the rest of the session.
+  const cleanupRef = useRef(cleanup);
+  cleanupRef.current = cleanup;
+  useEffect(() => {
+    return () => {
+      if (mediaRef.current && mediaRef.current.state !== 'inactive') {
+        mediaRef.current.onstop = null;
+        try { mediaRef.current.stop(); } catch { /* already stopped */ }
+      }
+      resolveRef.current = null;
+      cleanupRef.current();
+    };
   }, []);
 
   const start = useCallback(async () => {
