@@ -273,6 +273,20 @@ service cloud.firestore {
           && resource.data.get('adminIds', []) is list
           && request.auth.uid in resource.data.get('adminIds', []);
       }
+      // BUG-02/BUG-03: typing indicators and pinned messages both write to the
+      // conversation doc, but no allow-update branch permitted those keys, so
+      // both features failed silently on every attempt. Members may now touch
+      // ONLY their own typing entry, and the shared capped pinned list.
+      function memberTypingOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['typing'])
+          && request.resource.data.get('typing', {}).diff(resource.data.get('typing', {}))
+               .affectedKeys().hasOnly([request.auth.uid]);
+      }
+      function memberPinnedOnly() {
+        return request.resource.data.diff(resource.data).affectedKeys().hasOnly(['pinned'])
+          && request.resource.data.get('pinned', []) is list
+          && request.resource.data.get('pinned', []).size() <= 20;
+      }
       function memberReadUpdateOnly() {
         return request.resource.data.diff(resource.data).affectedKeys()
                  .hasOnly(['unread', 'lastReadAt'])
@@ -358,6 +372,8 @@ service cloud.firestore {
         && (
           memberReadUpdateOnly()
           || memberMessagePreviewOnly()
+          || memberTypingOnly()
+          || memberPinnedOnly()
           || adminGroupUpdate()
           || nonAdminSelfLeave()
           || adminSelfLeave()

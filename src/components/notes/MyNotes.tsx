@@ -13,7 +13,11 @@ export default function MyNotes() {
 
   async function handleAdd() {
     if (!user || !text.trim()) return;
-    await addNote(user.uid, text.trim().slice(0, MAX_NOTE_LENGTH));
+    try {
+      await addNote(user.uid, text.trim().slice(0, MAX_NOTE_LENGTH));
+    } catch {
+      return; // BUG-23: keep the draft if the write failed
+    }
     setText('');
   }
 

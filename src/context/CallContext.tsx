@@ -130,7 +130,14 @@ const createdCall = await startCallSvc(
 
   async function accept() {
     if (!incoming || !user) return;
-    await joinCall(incoming.id, user.uid);
+    // BUG-23: if joinCall fails, keep the incoming screen up. Dismissing it
+    // would hide the call while the caller is still ringing.
+    try {
+      await joinCall(incoming.id, user.uid);
+    } catch (err) {
+      console.error('[CALL] joinCall failed:', err);
+      return;
+    }
     setActiveCallId(incoming.id);
     setCallMinimized(false);
     setIncoming(null);
@@ -138,8 +145,15 @@ const createdCall = await startCallSvc(
 
   async function decline() {
     if (!incoming || !user) return;
-    await declineCall(incoming.id, user.uid, incoming.type === 'group');
-    setIncoming(null);
+    // Declining always dismisses locally -- a failed write must not trap the
+    // user on a ringing screen they explicitly rejected.
+    try {
+      await declineCall(incoming.id, user.uid, incoming.type === 'group');
+    } catch (err) {
+      console.error('[CALL] declineCall failed:', err);
+    } finally {
+      setIncoming(null);
+    }
   }
 
   return (

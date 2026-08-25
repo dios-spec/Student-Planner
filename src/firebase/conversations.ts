@@ -244,6 +244,11 @@ export async function promoteToAdmin(id: string, memberId: string) {
 
 export async function demoteAdmin(id: string, memberId: string) {
   const conv = await getConversationOnce(id);
+  // BUG-17: rules require adminIds.size() >= 1. Demoting the only admin was
+  // rejected with no feedback -- fail loudly so the UI can explain it.
+  if (conv && (conv.adminIds || []).length <= 1) {
+    throw new Error('A group must keep at least one admin.');
+  }
   await updateDoc(doc(convCol, id), { adminIds: arrayRemove(memberId) });
 
   if (conv) {

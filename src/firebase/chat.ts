@@ -64,7 +64,9 @@ export async function sendMessage(msg: NewMessage) {
   ).catch(() => {});
 }
 
-/** Live listener for the most recent page of chat — older messages are paginated on demand. */
+/** Live listener for the most recent page of chat — older messages are paginated on demand.
+ *  BUG-18: loadOlderMessages() below was implemented but never wired to any UI,
+ *  leaving all history beyond one page unreachable. */
 export function watchRecentMessages(cb: (msgs: ChatMessage[]) => void) {
   const q = query(messagesCol, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
   return onSnapshot(q, (snap) => {

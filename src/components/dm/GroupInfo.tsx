@@ -54,7 +54,13 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
       show('Promote another member to admin before leaving.');
       return;
     }
-    await leaveGroup(conversation.id, user.uid);
+    // BUG-23: only navigate away if the write actually succeeded.
+    try {
+      await leaveGroup(conversation.id, user.uid);
+    } catch {
+      show("Couldn't leave the group. Try again.");
+      return;
+    }
     onLeft();
   }
 
@@ -151,7 +157,14 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
             {people.length === 0 && <p className="py-4 text-center text-sm text-ink-soft">Everyone's already in.</p>}
             {people.map((p) => (
               <button key={p.id}
-                onClick={async () => { await addGroupMembers(conversation.id, [p]); show(`Added ${p.displayName}`); }}
+                onClick={async () => {
+                  try {
+                    await addGroupMembers(conversation.id, [p]);
+                    show(`Added ${p.displayName}`);
+                  } catch {
+                    show("Couldn't add that member. Try again.");
+                  }
+                }}
                 className="flex w-full items-center gap-3 rounded-xl px-2 py-2 text-left hover:bg-surface-alt">
                 <Avatar name={p.displayName} src={p.avatarUrl} emoji={p.emoji} size="sm" />
                 <span className="min-w-0 flex-1">

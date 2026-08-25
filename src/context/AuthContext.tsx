@@ -3,6 +3,7 @@ import { getIdTokenResult, onIdTokenChanged, type User } from 'firebase/auth';
 import { auth, ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
+import { clearSnapshotCache } from '../hooks/useCachedSnapshot';
 
 const HEARTBEAT_MS = 60000;
 import type { AppRole, StudentProfile } from '../types';
@@ -106,12 +107,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const tokenResult = await getIdTokenResult(user, true);
       const nextRole: AppRole = tokenResult.claims.role === 'teacher' ? 'teacher' : 'student';
+      // BUG-15: student and teacher see different collections (messages vs
+      // teacherMessages, merit visibility, etc). Cached snapshots from the old
+      // role must not survive the switch.
+      if (nextRole !== role) clearSnapshotCache();
       setRole(nextRole);
       return nextRole;
     } finally {
       setClaimsLoading(false);
     }
-  }, [user]);
+  }, [user, role]);
 
   const verifyTeacher = useCallback(async (password: string): Promise<void> => {
     if (!user) throw new Error('No signed-in user');

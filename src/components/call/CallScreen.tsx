@@ -60,8 +60,15 @@ export default function CallScreen({
   const ringingOrConnecting = call.status === 'ringing' || call.status === 'connecting';
 
   async function hangUp() {
-    if (user) await leaveCall(call.id, user.uid, isGroup);
-    onClose();
+    // onClose() MUST run even if the Firestore write fails, otherwise the
+    // (minimized) call UI can never be dismissed. BUG-04a.
+    try {
+      if (user) await leaveCall(call.id, user.uid, isGroup);
+    } catch (err) {
+      console.error('[CALL] leaveCall failed, closing UI anyway:', err);
+    } finally {
+      onClose();
+    }
   }
 
   if (minimized) {

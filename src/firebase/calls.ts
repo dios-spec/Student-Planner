@@ -93,7 +93,10 @@ cb(
     },
 
     (err) => {
+      // A dead onSnapshot never fires again. Without cb(null) the caller can
+      // never learn the call ended -> stuck call UI. BUG-04b.
       console.error('[CALL] watchCall ERROR:', callId, err);
+      cb(null);
     }
   );
 }
@@ -165,6 +168,12 @@ export function watchIncomingCalls(uid: string, cb: (call: CallDoc | null) => vo
 
           // If I already joined this call, do not resurrect it after refresh.
           if (call.participants?.[uid]?.joined) {
+            return false;
+          }
+
+          // BUG-05: if I have a participant entry that is explicitly not-joined
+          // I already left or declined -> never re-ring me for this same call.
+          if (call.participants?.[uid] && call.participants[uid].joined === false) {
             return false;
           }
 

@@ -14,12 +14,13 @@ import type { CallDoc } from '../types';
 export function useWebRTCCall(callId: string | null, myUid: string | null, call: CallDoc | null) {
   const [muted, setMutedState] = useState(false);
   const [speakerOn, setSpeakerOn] = useState(true);
-  const [remoteSpeaking, setRemoteSpeaking] = useState<Record<string, boolean>>({});
   const speakerOnRef = useRef(true);
   const localStreamRef = useRef<MediaStream | null>(null);
   const pcsRef = useRef<Map<string, RTCPeerConnection>>(new Map());
   const audioElsRef = useRef<Map<string, HTMLAudioElement>>(new Map());
-  const unsubsRef = useRef<(() => void)[]>([]);
+  // BUG-07: signal unsubscribes are tracked PER PEER so a departed peer can be
+  // fully torn down (and therefore rejoin later) instead of leaking forever.
+  const peerUnsubsRef = useRef<Map<string, () => void>>(new Map());
   const startedRef = useRef(false);
 
   const joinedPeers = call
@@ -110,7 +111,7 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
           }
         } catch { /* ignore signalling races */ }
       });
-      unsubsRef.current.push(unsub);
+      peerUnsubsRef.current.set(otherUid, unsub);
 
       if (iAmOfferer) {
         const offer = await pc.createOffer({ offerToReceiveAudio: true });
@@ -121,12 +122,35 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
     [callId, myUid, ensureLocalStream]
   );
 
+  // BUG-07: fully release a peer that left, so a later rejoin creates a fresh
+  // connection instead of hitting the "already have a pc for this uid" guard.
+  const dropPeer = useCallback((otherUid: string) => {
+    const pc = pcsRef.current.get(otherUid);
+    if (pc) { try { pc.close(); } catch { /* already closed */ } }
+    pcsRef.current.delete(otherUid);
+
+    const unsub = peerUnsubsRef.current.get(otherUid);
+    if (unsub) { try { unsub(); } catch { /* ignore */ } }
+    peerUnsubsRef.current.delete(otherUid);
+
+    const el = audioElsRef.current.get(otherUid);
+    if (el) { el.pause(); el.srcObject = null; el.remove(); }
+    audioElsRef.current.delete(otherUid);
+  }, []);
+
   // Connect to every joined peer; runs when the participant set changes.
   useEffect(() => {
     if (!callId || !myUid || !call) return;
     const meJoined = call.participants[myUid]?.joined;
     if (!meJoined) return;
     if (!startedRef.current) startedRef.current = true;
+
+    // Drop anyone we still hold a connection to who is no longer joined.
+    const stillHere = new Set(joinedPeers);
+    Array.from(pcsRef.current.keys()).forEach((uid) => {
+      if (!stillHere.has(uid)) dropPeer(uid);
+    });
+
     joinedPeers.forEach((uid) => makePeer(uid));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [callId, myUid, call?.participants, JSON.stringify(joinedPeers)]);
@@ -155,8 +179,8 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
   }, []);
 
   const cleanup = useCallback(() => {
-    unsubsRef.current.forEach((u) => u());
-    unsubsRef.current = [];
+    peerUnsubsRef.current.forEach((u) => { try { u(); } catch { /* ignore */ } });
+    peerUnsubsRef.current.clear();
     pcsRef.current.forEach((pc) => pc.close());
     pcsRef.current.clear();
     audioElsRef.current.forEach((el) => {
@@ -172,5 +196,5 @@ export function useWebRTCCall(callId: string | null, myUid: string | null, call:
 
   useEffect(() => cleanup, [cleanup]);
 
-  return { muted, toggleMute, speakerOn, toggleSpeaker, ensureLocalStream, cleanup, remoteSpeaking, setRemoteSpeaking };
+  return { muted, toggleMute, speakerOn, toggleSpeaker, ensureLocalStream, cleanup };
 }

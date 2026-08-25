@@ -182,10 +182,15 @@ export async function markNotificationRead(id: string) {
 }
 
 export async function markAllRead(uid: string) {
+  // BUG-16: Firestore hard-caps writeBatch at 500 ops. With notification
+  // fan-out, 500+ unread is realistic, and the whole commit would reject.
   const snap = await getDocs(query(col, where('userId', '==', uid), where('read', '==', false)));
-  const batch = writeBatch(db);
-  snap.docs.forEach((d) => batch.update(d.ref, { read: true }));
-  await batch.commit();
+  const CHUNK = 450;
+  for (let i = 0; i < snap.docs.length; i += CHUNK) {
+    const batch = writeBatch(db);
+    snap.docs.slice(i, i + CHUNK).forEach((d) => batch.update(d.ref, { read: true }));
+    await batch.commit();
+  }
 }
 
 export async function clearNotification(id: string) {

@@ -83,7 +83,16 @@ export async function updatePlannerItem(
   const title = patch.title || oldItem?.title;
   const date = patch.date || oldItem?.date;
 
-  if (classId && title) {
+  // BUG-12: only notify when something students actually care about moved.
+  // Previously every edit (including fixing a typo) pushed to the whole class.
+  const materialChange =
+    (patch.title !== undefined && patch.title !== oldItem?.title) ||
+    (patch.dueDate !== undefined && patch.dueDate !== oldItem?.dueDate) ||
+    (patch.date !== undefined && patch.date !== oldItem?.date) ||
+    (patch.category !== undefined && patch.category !== oldItem?.category) ||
+    (patch.classId !== undefined && patch.classId !== oldItem?.classId);
+
+  if (classId && title && materialChange) {
     void pushToClass(
       classId,
       {

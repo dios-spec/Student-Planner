@@ -100,9 +100,12 @@ export default function ConversationScreen({
     return watchUserProfile(otherId, setOtherProfile);
   }, [isGroup, otherId]);
 
+  // BUG-06: messages.length is pinned by limit(40), so it stops changing in any
+  // conversation past 40 messages. Key off the newest message id instead.
+  const newestMsgId = messages && messages.length ? messages[messages.length - 1].id : null;
   useEffect(() => {
     if (user) markConversationRead(conversation.id, user.uid);
-  }, [conversation.id, user, messages?.length]);
+  }, [conversation.id, user, newestMsgId]);
 
   useEffect(() => {
     if (loading) return;
