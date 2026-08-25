@@ -1,7 +1,9 @@
 import {
   addDoc,
   collection,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   serverTimestamp,
   where,
@@ -56,15 +58,29 @@ export function watchMeritRecords(studentId: string, cb: (records: MeritRecord[]
   });
 }
 
-/** Teacher dashboard listener. Kept live so manual Firestore corrections appear immediately. */
+/** Teacher dashboard listener. Kept live so manual Firestore corrections appear immediately.
+ *  BUG-10: this was an UNBOUNDED listener on the whole collection, mounted
+ *  app-wide for every user on every load. meritRecords grows all year, so every
+ *  student re-downloaded the entire history on every app open. Bounded to the
+ *  most recent MERIT_WINDOW records, newest first. */
+const MERIT_WINDOW = 400;
+
 export function watchAllMeritRecords(cb: (records: MeritRecord[]) => void) {
-  return onSnapshot(meritCol, (snap) => {
-    cb(
-      snap.docs
-        .map((d) => ({ id: d.id, ...d.data() }) as MeritRecord)
-        .sort(byNewest)
-    );
-  });
+  const q = query(meritCol, orderBy('createdAt', 'desc'), limit(MERIT_WINDOW));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(
+        snap.docs
+          .map((d) => ({ id: d.id, ...d.data() }) as MeritRecord)
+          .sort(byNewest)
+      );
+    },
+    (err) => {
+      console.error('[MERIT] watchAllMeritRecords failed:', err);
+      cb([]);
+    }
+  );
 }
 
 /**
@@ -72,9 +88,19 @@ export function watchAllMeritRecords(cb: (records: MeritRecord[]) => void) {
  * names/avatars, so changing a profile updates old and new Merit UI alike.
  */
 export function watchMeritProfiles(cb: (profiles: StudentProfile[]) => void) {
-  return onSnapshot(usersCol, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudentProfile));
-  });
+  // BUG-10: bounded so a growing user table can never become an unbounded
+  // per-session download. 300 covers a whole school comfortably.
+  const q = query(usersCol, limit(300));
+  return onSnapshot(
+    q,
+    (snap) => {
+      cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudentProfile));
+    },
+    (err) => {
+      console.error('[MERIT] watchMeritProfiles failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function addMeritRecord(input: {

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { watchNotifications } from '../firebase/notifications';
+import { watchNotifications, pruneOldNotifications } from '../firebase/notifications';
 import type { AppNotification } from '../types';
 
 export function useNotifications(uid: string | undefined) {
@@ -9,6 +9,8 @@ export function useNotifications(uid: string | undefined) {
   useEffect(() => {
     if (!uid) { setLoaded(false); return; }
     setLoaded(false);
+    // BUG-11: background prune of old READ notifications, once per session.
+    void pruneOldNotifications(uid);
     return watchNotifications(uid, (items) => {
       setNotifications(items);
       setLoaded(true);

@@ -4,6 +4,7 @@ import { auth, ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
 import { clearSnapshotCache } from '../hooks/useCachedSnapshot';
+import { invalidateRosterCache } from '../firebase/notifications';
 
 const HEARTBEAT_MS = 60000;
 import type { AppRole, StudentProfile } from '../types';
@@ -110,7 +111,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       // BUG-15: student and teacher see different collections (messages vs
       // teacherMessages, merit visibility, etc). Cached snapshots from the old
       // role must not survive the switch.
-      if (nextRole !== role) clearSnapshotCache();
+      if (nextRole !== role) { clearSnapshotCache(); invalidateRosterCache(); }
       setRole(nextRole);
       return nextRole;
     } finally {

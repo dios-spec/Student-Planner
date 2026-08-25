@@ -108,7 +108,7 @@ export default function MessageBubble({
         <div className="mt-0.5 flex items-center gap-2 px-1">
           <span className="text-[11px] text-ink-soft">{relativeTime(createdDate)}{message.edited ? ' · edited' : ''}</span>
           <button onClick={() => setPickerOpen((o) => !o)} className="text-ink-soft hover:text-accent"><SmilePlus size={14} /></button>
-          <button onClick={onReply} className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
+          <button onClick={onReply} aria-label="Reply to message" className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
           <button onClick={() => setMenuOpen((o) => !o)} className="text-ink-soft hover:text-accent">•••</button>
         </div>
 

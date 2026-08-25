@@ -113,7 +113,7 @@ export default function DMBubble({
           <span className="text-[11px] text-ink-soft">{relativeTime(created)}{message.edited ? ' · edited' : ''}</span>
           {receiptLabel && <span className="text-[11px] font-medium text-accent">{receiptLabel}</span>}
           <button onClick={() => setPicker((o) => !o)} className="text-ink-soft hover:text-accent"><SmilePlus size={14} /></button>
-          <button onClick={onReply} className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
+          <button onClick={onReply} aria-label="Reply to message" className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
           <button onClick={onTogglePin} aria-label={pinned ? 'Unpin' : 'Pin'} className={pinned ? 'text-accent' : 'text-ink-soft hover:text-accent'}>
             <Pin size={13} className={pinned ? 'fill-accent' : ''} />
           </button>
@@ -126,7 +126,7 @@ export default function DMBubble({
             </button>
           )}
           {isMine && (
-            <button onClick={onDelete} className="text-ink-soft hover:text-coral"><Trash2 size={13} /></button>
+            <button onClick={onDelete} aria-label="Delete message" className="text-ink-soft hover:text-coral"><Trash2 size={13} /></button>
           )}
         </div>
 
