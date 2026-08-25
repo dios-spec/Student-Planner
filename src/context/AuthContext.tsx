@@ -5,6 +5,7 @@ import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
 import {
   accountTypeForFirebaseUser,
+  completePendingGoogleLink,
   linkAnonymousUserToEmail,
   linkAnonymousUserToGoogle,
   syncAccountProvider,
@@ -54,7 +55,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let unsubProfile: (() => void) | undefined;
 
-    ensureAnonymousUser()
+    completePendingGoogleLink()
+      .catch((error) => {
+        console.error('Could not complete Google account linking', error);
+        throw error;
+      })
+      .then((redirectUser) => redirectUser || ensureAnonymousUser())
       .then(async (fbUser) => {
         setUser(fbUser);
         const seenBefore = localStorage.getItem('sbp_seen_welcome');
@@ -166,6 +172,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     const originalUid = user.uid;
     const linkedUser = await linkAnonymousUserToGoogle(user);
+
+    // Mobile/TWA uses linkWithRedirect(), which navigates away and completes
+    // on the next page load. There is no linked user to sync on this page yet.
+    if (!linkedUser) return;
 
     if (linkedUser.uid !== originalUid) {
       throw new Error('Account linking changed the Firebase UID unexpectedly');

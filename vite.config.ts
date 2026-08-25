@@ -39,7 +39,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp}'],
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/firebase-cloud-messaging-push-scope/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/firebase-cloud-messaging-push-scope/, /^\/__\/auth\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

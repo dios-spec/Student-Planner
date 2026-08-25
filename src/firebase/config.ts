@@ -18,9 +18,15 @@ function cleanEnv(value: string | undefined): string {
   return (value || '').trim().replace(/\\n/g, '');
 }
 
+const configuredAuthDomain = cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN);
+const runtimeAuthDomain =
+  typeof window !== 'undefined' && window.location.hostname === 'student-collab-7th.vercel.app'
+    ? 'student-collab-7th.vercel.app'
+    : configuredAuthDomain;
+
 const firebaseConfig = {
   apiKey: cleanEnv(import.meta.env.VITE_FIREBASE_API_KEY),
-  authDomain: cleanEnv(import.meta.env.VITE_FIREBASE_AUTH_DOMAIN),
+  authDomain: runtimeAuthDomain,
   projectId: cleanEnv(import.meta.env.VITE_FIREBASE_PROJECT_ID),
   storageBucket: cleanEnv(import.meta.env.VITE_FIREBASE_STORAGE_BUCKET),
   messagingSenderId: cleanEnv(import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID),
