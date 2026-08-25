@@ -20,6 +20,7 @@ import { useActiveClass } from '../context/ClassContext';
 import ClassSelector from '../components/layout/ClassSelector';
 import { setCompletion, setImportantForMe, softDeletePlannerItem, restorePlannerItem } from '../firebase/planner';
 import { useMyImportant } from '../hooks/useMyImportant';
+import { sfxComplete, sfxSelect } from '../utils/sfx';
 import { CATEGORY_ORDER } from '../data/categories';
 import type { PlannerItem } from '../types';
 import ExamCountdowns from '../components/planner/ExamCountdowns';
@@ -131,11 +132,21 @@ export default function PlannerPage() {
                 category={cat}
                 items={grouped[cat] || []}
                 completions={completions}
-                onToggleDone={(id, next) => user && setCompletion(user.uid, id, next)}
+                onToggleDone={(id, next) => {
+                  if (!user) return;
+                  // Only celebrate on completion, not on un-checking.
+                  if (next) sfxComplete();
+                  else sfxSelect();
+                  setCompletion(user.uid, id, next);
+                }}
                 onEdit={openEdit}
                 onDelete={setDeleteTarget}
                 importantSet={importantSet}
-                onToggleImportant={(id) => user && setImportantForMe(user.uid, id, !importantSet.has(id))}
+                onToggleImportant={(id) => {
+                  if (!user) return;
+                  sfxSelect();
+                  setImportantForMe(user.uid, id, !importantSet.has(id));
+                }}
               />
             ))}
           </>

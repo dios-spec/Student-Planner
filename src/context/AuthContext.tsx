@@ -5,6 +5,7 @@ import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
 import { clearSnapshotCache } from '../hooks/useCachedSnapshot';
 import { invalidateRosterCache } from '../firebase/notifications';
+import { setSfxEnabled } from '../utils/sfx';
 
 const HEARTBEAT_MS = 60000;
 import type { AppRole, StudentProfile } from '../types';
@@ -27,6 +28,12 @@ const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
+
+  // Keep the UI sound layer in sync with the user's own notification
+  // preference, so muting call sound also mutes interface sounds.
+  useEffect(() => {
+    setSfxEnabled(profile?.notificationSettings?.sound !== false);
+  }, [profile?.notificationSettings?.sound]);
   const [loading, setLoading] = useState(true);
   const [claimsLoading, setClaimsLoading] = useState(true);
   const [role, setRole] = useState<AppRole>('student');

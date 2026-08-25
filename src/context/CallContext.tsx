@@ -12,6 +12,7 @@ import CallScreen from '../components/call/CallScreen';
 import IncomingCall from '../components/call/IncomingCall';
 import type { CallDoc, Conversation, StudentProfile } from '../types';
 import { primeRingtone } from '../utils/ringtone';
+import { primeSfx } from '../utils/sfx';
 
 interface CallContextValue {
   startCall: (conversation: Conversation, caller: StudentProfile) => Promise<void>;
@@ -29,7 +30,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
 
   // Prime Web Audio on the first real gesture so later incoming calls can ring.
   useEffect(() => {
-    const prime = () => primeRingtone();
+    const prime = () => { primeRingtone(); primeSfx(); };
     // click/touchend/keydown are the events Chrome's Web Audio autoplay
     // gate reliably recognizes as a completed gesture; pointerdown alone
     // (the very start of a tap, before the browser confirms intent) is not

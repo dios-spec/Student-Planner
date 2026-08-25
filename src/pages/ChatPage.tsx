@@ -12,7 +12,8 @@ import { useMessages } from '../hooks/useMessages';
 import { useActiveStudentCount } from '../hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
-import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage, sendPoll, voteOnPoll, closePoll, editMessage } from '../firebase/chat';
+import { sendMessage, toggleReaction, deleteOwnMessage, reportMessage, sendPoll, voteOnPoll, closePoll, editMessage, loadOlderMessages } from '../firebase/chat';
+import { sfxSend, sfxPop, sfxSelect, sfxError } from '../utils/sfx';
 import { useSavedItems } from '../hooks/useSavedItems';
 import { saveItem, unsaveItem } from '../firebase/saved';
 import { uploadChatImage, uploadVoiceClip } from '../firebase/storage';
@@ -45,6 +46,28 @@ export default function ChatPage() {
   const [uploading, setUploading] = useState(false);
   const [viewUid, setViewUid] = useState<string | null>(null);
   const [pollOpen, setPollOpen] = useState(false);
+
+  // BUG-18: loadOlderMessages() existed but was wired to nothing, so all class
+  // chat history beyond the first page was unreachable in the app.
+  const [older, setOlder] = useState<ChatMessage[]>([]);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [noMoreOlder, setNoMoreOlder] = useState(false);
+
+  async function handleLoadOlder() {
+    const oldestLoaded = older[0] || (messages && messages[0]);
+    if (!oldestLoaded?.createdAt || loadingOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await loadOlderMessages(oldestLoaded.createdAt);
+      if (!page.length) setNoMoreOlder(true);
+      else setOlder((prev) => [...page, ...prev]);
+    } catch {
+      show("Couldn't load older messages.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
   const messageListRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -71,14 +94,20 @@ export default function ChatPage() {
   if (!user || !profile) return null;
 
   async function handleSend(text: string) {
-    await sendMessage({
-      senderId: user!.uid,
-      senderName: profile!.displayName,
-      senderAvatar: profile!.avatarUrl,
-      text,
-      replyTo: replyTo ?? null,
-    });
-    setReplyTo(null);
+    try {
+      await sendMessage({
+        senderId: user!.uid,
+        senderName: profile!.displayName,
+        senderAvatar: profile!.avatarUrl,
+        text,
+        replyTo: replyTo ?? null,
+      });
+      sfxSend();
+      setReplyTo(null);
+    } catch {
+      sfxError();
+      show("Couldn't send. Check your connection.");
+    }
   }
 
   async function handleSendImage(file: File) {
@@ -167,7 +196,24 @@ export default function ChatPage() {
         {!loading && messages?.length === 0 && (
           <EmptyState emoji="💬" title="No messages yet" subtitle="Say hi to the class!" />
         )}
-        {messages?.map((m) => (
+
+        {!loading && (messages?.length ?? 0) > 0 && !noMoreOlder && (
+          <div className="flex justify-center pb-1">
+            <button
+              onClick={handleLoadOlder}
+              disabled={loadingOlder}
+              className="rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-semibold text-ink-soft transition-colors hover:text-accent disabled:opacity-50"
+            >
+              {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+            </button>
+          </div>
+        )}
+        {noMoreOlder && (
+          <p className="pb-1 text-center text-[11px] text-ink-soft/70">
+            Start of the conversation
+          </p>
+        )}
+        {[...older, ...(messages || [])].map((m) => (
           <MessageBubble
             key={m.id}
             message={{
@@ -177,7 +223,7 @@ export default function ChatPage() {
             }}
             isMine={m.senderId === user.uid}
             myUid={user.uid}
-            onReact={(emoji, already) => toggleReaction(m.id, emoji, user.uid, already)}
+            onReact={(emoji, already) => { if (!already) sfxPop(); toggleReaction(m.id, emoji, user.uid, already); }}
             onReply={() =>
               setReplyTo({ id: m.id, senderName: m.senderName, text: m.text })
             }
@@ -190,7 +236,7 @@ export default function ChatPage() {
             onOpenProfile={setViewUid}
             pinned={pinned.some((p) => p.messageId === m.id)}
             onTogglePin={() => handleTogglePin(m)}
-            onVotePoll={(optionId) => voteOnPoll(m.id, optionId, user.uid)}
+            onVotePoll={(optionId) => { sfxSelect(); voteOnPoll(m.id, optionId, user.uid); }}
             onClosePoll={() => closePoll(m.id)}
             onEditMessage={(newText) => editMessage(m.id, newText)}
             saved={isSaved('message', m.id)}
@@ -222,3 +268,5 @@ export default function ChatPage() {
     </div>
   );
 }
+
+

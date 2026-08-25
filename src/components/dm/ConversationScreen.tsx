@@ -12,6 +12,7 @@ import { useToast } from '../../context/ToastContext';
 import { useCall } from '../../context/CallContext';
 import { useActiveConversation } from '../../context/ActiveConversationContext';
 import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll, editDMMessage } from '../../firebase/dm';
+import { sfxSend, sfxPop, sfxSelect, sfxError } from '../../utils/sfx';
 import { useSavedItems } from '../../hooks/useSavedItems';
 import { saveItem, unsaveItem } from '../../firebase/saved';
 import { markConversationRead } from '../../firebase/conversations';
@@ -131,16 +132,23 @@ export default function ConversationScreen({
   if (!user || !profile) return null;
 
   async function send(partial: Parameters<typeof sendDM>[0] extends infer T ? Partial<T> : never) {
-    await sendDM({
-      conversation,
-      senderId: user!.uid,
-      senderName: profile!.displayName,
-      senderAvatar: profile!.avatarUrl,
-      kind: 'text',
-      replyTo: replyTo ?? null,
-      ...partial,
-    } as Parameters<typeof sendDM>[0]);
-    setReplyTo(null);
+    try {
+      await sendDM({
+        conversation,
+        senderId: user!.uid,
+        senderName: profile!.displayName,
+        senderAvatar: profile!.avatarUrl,
+        kind: 'text',
+        replyTo: replyTo ?? null,
+        ...partial,
+      } as Parameters<typeof sendDM>[0]);
+      sfxSend();
+      setReplyTo(null);
+    } catch {
+      // BUG-23 family: never silently pretend a message was delivered.
+      sfxError();
+      show("Couldn't send. Check your connection.");
+    }
   }
 
   async function handleImage(file: File) {
@@ -258,7 +266,7 @@ export default function ConversationScreen({
             isMine={m.senderId === user.uid}
             myUid={user.uid}
             isGroup={isGroup}
-            onReact={(emoji, already) => toggleDMReaction(conversation.id, m.id, emoji, user.uid, already)}
+            onReact={(emoji, already) => { if (!already) sfxPop(); toggleDMReaction(conversation.id, m.id, emoji, user.uid, already); }}
             onReply={() => setReplyTo({ id: m.id, senderName: m.senderName, preview: m.text || (m.kind === 'voice' ? '🎤 Voice' : m.kind === 'image' ? '📷 Photo' : 'Shared') })}
             onDelete={() => deleteDMMessage(conversation.id, m.id)}
             onImageClick={setPreviewUrl}
@@ -267,7 +275,7 @@ export default function ConversationScreen({
             pinned={(conversation.pinned || []).some((p) => p.messageId === m.id)}
             onTogglePin={() => handleTogglePin(m)}
             receiptLabel={m.senderId === user.uid ? receiptLabelFor(m) : undefined}
-            onVotePoll={(optionId) => voteOnDMPoll(conversation.id, m.id, optionId, user.uid)}
+            onVotePoll={(optionId) => { sfxSelect(); voteOnDMPoll(conversation.id, m.id, optionId, user.uid); }}
             onClosePoll={() => closeDMPoll(conversation.id, m.id)}
             onEditMessage={(newText) => editDMMessage(conversation.id, m.id, newText)}
             saved={isSaved('dmMessage', m.id)}
