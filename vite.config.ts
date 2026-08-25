@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'Student Buddy Planner',
         short_name: 'Buddy Planner',
-        description: 'Homework, tests, projects and class chat — all in one place.',
+        description: 'Homework, tests, projects and class chat â€” all in one place.',
         id: '/',
         scope: '/',
         lang: 'en-IN',
@@ -39,7 +39,7 @@ export default defineConfig({
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp}'],
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/firebase-cloud-messaging-push-scope/],
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/firebase-cloud-messaging-push-scope/],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,
