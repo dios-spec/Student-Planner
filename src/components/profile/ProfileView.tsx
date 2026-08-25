@@ -17,6 +17,7 @@ import PresenceLabel from '../shared/PresenceLabel';
 import { CLASS_COLORS, isClassId } from '../../data/classes';
 import type { StudentProfile } from '../../types';
 import RoleBadge from './RoleBadge';
+import AccountTypeBadge, { accountTypeFromProfile } from './AccountTypeBadge';
 import { isVerifiedTeacherProfile } from '../../utils/roles';
 import MeritSummaryCard from '../merit/MeritSummaryCard';
 
@@ -84,8 +85,9 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
                   </span>
                 )}
               </div>
-              <div className="mt-1 flex justify-center">
+              <div className="mt-1 flex flex-wrap justify-center gap-1.5">
                 <RoleBadge teacher={isVerifiedTeacherProfile(profile)} />
+                <AccountTypeBadge accountType={accountTypeFromProfile(profile)} />
               </div>
               {profile.moodLabel && <p className="text-xs text-ink-soft">{profile.moodEmoji} {profile.moodLabel}</p>}
               {!isMe && <PresenceLabel profile={profile} className="mt-0.5 justify-center" />}

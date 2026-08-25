@@ -30,7 +30,7 @@ service cloud.firestore {
     }
     function serverRoleFieldsUnchanged() {
       return !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['role', 'teacherVerifiedAt', 'teacherVerifiedBy', 'teacherRoleVersion', 'roleUpdatedAt']);
+        .hasAny(['role', 'teacherVerifiedAt', 'teacherVerifiedBy', 'teacherRoleVersion', 'roleUpdatedAt', 'accountType']);
     }
     function validMediaUrl(value) {
       return value == ''
@@ -62,7 +62,8 @@ service cloud.firestore {
         && !request.resource.data.keys().hasAny(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
         // A new client profile is always a student. Only the Admin SDK
         // verification endpoint may add the teacher role and timestamp.
-        && isStudentProfileCreate(request.resource.data);
+        && isStudentProfileCreate(request.resource.data)
+        && request.resource.data.get('accountType', 'anonymous') == 'anonymous';
       allow update: if isOwner(uid)
         && strLen(request.resource.data.displayName, 24)
         && strLen(request.resource.data.get('bio', ''), 80)

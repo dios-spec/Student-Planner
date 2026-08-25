@@ -12,6 +12,7 @@ import BottomNav from './components/layout/BottomNav';
 import OfflineBanner from './components/layout/OfflineBanner';
 import SplashScreen from './components/onboarding/SplashScreen';
 import NotificationPrompt from './components/shared/NotificationPrompt';
+import AccountUpgradePrompt from './components/auth/AccountUpgradePrompt';
 import LiveNotificationBanner from './components/shared/LiveNotificationBanner';
 import { useBrowserNotifications } from './hooks/useBrowserNotifications';
 import { usePushNotifications } from './hooks/usePushNotifications';
@@ -118,6 +119,7 @@ function AppShell() {
           </a>
           <OfflineBanner />
           <NotificationPrompt />
+          <AccountUpgradePrompt />
           <RouteAccessibility />
           <main id="main-content" tabIndex={-1} className="outline-none">
             <Suspense fallback={<PageFallback />}>

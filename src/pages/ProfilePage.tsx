@@ -16,6 +16,7 @@ import MoodBadge from '../components/profile/MoodBadge';
 import MoodPicker from '../components/profile/MoodPicker';
 import { CLASS_COLORS, isClassId } from '../data/classes';
 import RoleBadge from '../components/profile/RoleBadge';
+import AccountTypeBadge from '../components/profile/AccountTypeBadge';
 import TeacherVerificationModal from '../components/profile/TeacherVerificationModal';
 import MeritSummaryCard from '../components/merit/MeritSummaryCard';
 
@@ -53,8 +54,9 @@ export default function ProfilePage() {
                 </span>
               )}
             </div>
-            <div className="mt-1">
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <RoleBadge teacher={isTeacher} />
+              <AccountTypeBadge accountType={user?.isAnonymous ? 'anonymous' : 'google'} />
             </div>
             {profile.bio && <p className="truncate text-sm text-ink-soft">"{profile.bio}"</p>}
             <p className="mt-0.5 text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
@@ -194,9 +196,17 @@ export default function ProfilePage() {
         <div className="flex items-start gap-2 rounded-2xl bg-surface-alt p-3.5 text-xs text-ink-soft">
           <Info size={14} className="mt-0.5 shrink-0" />
           <span>
-            Your sign-in profile is anonymous — no email or phone number. Anyone in your class can see your
-            name, photo, status and posts. Teacher passwords are checked only by the server and are never saved
-            in your profile.
+            {user?.isAnonymous ? (
+              <>
+                Your sign-in is currently anonymous. Your Google email is not required to use Buddy Planner,
+                but linking Google gives you a recovery path if you change devices or lose local app data.
+              </>
+            ) : (
+              <>
+                Your Buddy Planner account is linked to Google. Your Google email is never shown on your public
+                Buddy profile; classmates only see the profile information you choose to share.
+              </>
+            )}
           </span>
         </div>
       </div>

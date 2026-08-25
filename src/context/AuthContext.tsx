@@ -3,6 +3,7 @@ import { getIdTokenResult, onIdTokenChanged, type User } from 'firebase/auth';
 import { auth, ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
+import { linkAnonymousUserToGoogle, syncAccountProvider } from '../firebase/accountLinking';
 import { clearSnapshotCache } from '../hooks/useCachedSnapshot';
 import { invalidateRosterCache } from '../firebase/notifications';
 import { setSfxEnabled } from '../utils/sfx';
@@ -17,9 +18,11 @@ interface AuthContextValue {
   claimsLoading: boolean;
   role: AppRole;
   isTeacher: boolean;
+  isAnonymous: boolean;
   isFirstVisit: boolean;
   refreshClaims: () => Promise<AppRole>;
   verifyTeacher: (password: string) => Promise<void>;
+  linkGoogleAccount: () => Promise<void>;
   dismissWelcome: () => void;
 }
 
@@ -57,6 +60,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setClaimsLoading(false);
         }
         await ensureUserProfile(fbUser.uid);
+        syncAccountProvider(fbUser).catch((error) => {
+          console.warn('Could not sync account provider', error);
+        });
         touchLastSeen(fbUser.uid);
         syncTimezone(fbUser.uid);
         unsubProfile = watchUserProfile(fbUser.uid, (p) => {
@@ -138,6 +144,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, [refreshClaims, user]);
 
+  const linkGoogleAccount = useCallback(async (): Promise<void> => {
+    if (!user) throw new Error('No signed-in user');
+    if (!user.isAnonymous) return;
+
+    const originalUid = user.uid;
+    const linkedUser = await linkAnonymousUserToGoogle(user);
+
+    if (linkedUser.uid !== originalUid) {
+      throw new Error('Account linking changed the Firebase UID unexpectedly');
+    }
+
+    setUser(linkedUser);
+    await syncAccountProvider(linkedUser);
+  }, [user]);
+
   const dismissWelcome = () => {
     localStorage.setItem('sbp_seen_welcome', '1');
     setIsFirstVisit(false);
@@ -152,9 +173,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         claimsLoading,
         role,
         isTeacher: role === 'teacher',
+        isAnonymous: user?.isAnonymous ?? true,
         isFirstVisit,
         refreshClaims,
         verifyTeacher,
+        linkGoogleAccount,
         dismissWelcome,
       }}
     >
