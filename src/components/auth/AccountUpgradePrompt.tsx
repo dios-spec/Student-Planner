@@ -16,9 +16,16 @@ function friendlyError(error: unknown): string {
   }
   if (
     code === 'auth/credential-already-in-use' ||
+    code === 'auth/email-already-in-use' ||
     code === 'auth/account-exists-with-different-credential'
   ) {
-    return 'That Google account is already connected to a different Buddy Planner profile. Use another Google account so neither profile is overwritten.';
+    return 'That sign-in is already connected to a different Buddy Planner profile. Use another account so neither profile is overwritten.';
+  }
+  if (code === 'auth/invalid-email') {
+    return 'Enter a valid email address.';
+  }
+  if (code === 'auth/weak-password') {
+    return 'Choose a password with at least 6 characters.';
   }
   if (code === 'auth/operation-not-allowed') {
     return 'Google sign-in is not enabled in Firebase yet.';
@@ -33,22 +40,25 @@ function friendlyError(error: unknown): string {
 }
 
 export default function AccountUpgradePrompt() {
-  const { user, linkGoogleAccount } = useAuth();
+  const { user, accountType, linkGoogleAccount, linkEmailAccount } = useAuth();
   const [visible, setVisible] = useState(false);
   const [working, setWorking] = useState(false);
+  const [emailMode, setEmailMode] = useState(false);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    if (!user?.isAnonymous) {
+    if (!user || accountType !== 'anonymous') {
       setVisible(false);
       return;
     }
 
     const timer = window.setTimeout(() => setVisible(true), SHOW_AFTER_MS);
     return () => window.clearTimeout(timer);
-  }, [user?.uid, user?.isAnonymous]);
+  }, [user?.uid, accountType]);
 
-  if (!user?.isAnonymous || !visible) return null;
+  if (!user || accountType !== 'anonymous' || !visible) return null;
 
   async function connectGoogle() {
     if (working) return;
@@ -57,6 +67,32 @@ export default function AccountUpgradePrompt() {
 
     try {
       await linkGoogleAccount();
+      setVisible(false);
+    } catch (err) {
+      const message = friendlyError(err);
+      if (message) setError(message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  async function connectEmail() {
+    if (working) return;
+
+    if (!email.trim()) {
+      setError('Enter your email address.');
+      return;
+    }
+    if (password.length < 6) {
+      setError('Password must be at least 6 characters.');
+      return;
+    }
+
+    setWorking(true);
+    setError('');
+
+    try {
+      await linkEmailAccount(email, password);
       setVisible(false);
     } catch (err) {
       const message = friendlyError(err);
@@ -102,8 +138,8 @@ export default function AccountUpgradePrompt() {
           </div>
 
           <p id="account-upgrade-description" className="text-sm leading-6 text-ink-soft">
-            You're using an anonymous account right now. Connect Google so the same
-            Buddy Planner profile can be recovered on another device or after reinstalling.
+            You're using an anonymous account right now. Connect Google or Email/Password
+            so the same Buddy Planner profile can be recovered on another device or after reinstalling.
           </p>
 
           <div className="mt-4 grid gap-2">
@@ -148,6 +184,55 @@ export default function AccountUpgradePrompt() {
             </span>
             {working ? 'Connecting…' : 'Continue with Google'}
           </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setEmailMode((value) => !value);
+              setError('');
+            }}
+            disabled={working}
+            className="mt-2 w-full rounded-2xl border border-line bg-surface-alt px-4 py-3 text-sm font-bold text-ink disabled:opacity-50"
+          >
+            {emailMode ? 'Hide email option' : 'Use Email & Password instead'}
+          </button>
+
+          {emailMode && (
+            <div className="mt-3 space-y-2 rounded-2xl border border-line bg-surface-alt p-3">
+              <label className="block text-xs font-semibold text-ink">
+                Email
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(event) => setEmail(event.target.value)}
+                  autoComplete="email"
+                  placeholder="your@email.com"
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                />
+              </label>
+
+              <label className="block text-xs font-semibold text-ink">
+                Password
+                <input
+                  type="password"
+                  value={password}
+                  onChange={(event) => setPassword(event.target.value)}
+                  autoComplete="new-password"
+                  placeholder="At least 6 characters"
+                  className="mt-1 w-full rounded-xl border border-line bg-surface px-3 py-2.5 text-sm text-ink outline-none focus:border-accent"
+                />
+              </label>
+
+              <button
+                type="button"
+                onClick={connectEmail}
+                disabled={working}
+                className="w-full rounded-xl bg-ink px-4 py-2.5 text-sm font-bold text-surface disabled:opacity-50"
+              >
+                {working ? 'Connecting…' : 'Secure with Email'}
+              </button>
+            </div>
+          )}
 
           <button
             type="button"

@@ -24,10 +24,15 @@ export default async function handler(req, res) {
     const decoded = await adminAuth.verifyIdToken(token);
     const record = await adminAuth.getUser(decoded.uid);
 
-    const googleLinked = record.providerData.some(
-      (provider) => provider.providerId === 'google.com'
+    const providerIds = new Set(
+      record.providerData.map((provider) => provider.providerId)
     );
-    const accountType = googleLinked ? 'google' : 'anonymous';
+
+    const accountType = providerIds.has('google.com')
+      ? 'google'
+      : providerIds.has('password')
+        ? 'email'
+        : 'anonymous';
 
     await getFirestore(app)
       .collection('users')

@@ -3,7 +3,13 @@ import { getIdTokenResult, onIdTokenChanged, type User } from 'firebase/auth';
 import { auth, ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
 import { verifyTeacherPassword } from '../firebase/teacherVerification';
-import { linkAnonymousUserToGoogle, syncAccountProvider } from '../firebase/accountLinking';
+import {
+  accountTypeForFirebaseUser,
+  linkAnonymousUserToEmail,
+  linkAnonymousUserToGoogle,
+  syncAccountProvider,
+  type AccountType,
+} from '../firebase/accountLinking';
 import { clearSnapshotCache } from '../hooks/useCachedSnapshot';
 import { invalidateRosterCache } from '../firebase/notifications';
 import { setSfxEnabled } from '../utils/sfx';
@@ -19,10 +25,12 @@ interface AuthContextValue {
   role: AppRole;
   isTeacher: boolean;
   isAnonymous: boolean;
+  accountType: AccountType;
   isFirstVisit: boolean;
   refreshClaims: () => Promise<AppRole>;
   verifyTeacher: (password: string) => Promise<void>;
   linkGoogleAccount: () => Promise<void>;
+  linkEmailAccount: (email: string, password: string) => Promise<void>;
   dismissWelcome: () => void;
 }
 
@@ -40,6 +48,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [claimsLoading, setClaimsLoading] = useState(true);
   const [role, setRole] = useState<AppRole>('student');
+  const [accountType, setAccountType] = useState<AccountType>('anonymous');
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   useEffect(() => {
@@ -60,9 +69,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           setClaimsLoading(false);
         }
         await ensureUserProfile(fbUser.uid);
-        syncAccountProvider(fbUser).catch((error) => {
-          console.warn('Could not sync account provider', error);
-        });
+
+        // Client providerData gives an immediate, factual account state.
+        // The server then verifies it with Firebase Admin and syncs the
+        // public profile badge without trusting a client-written field.
+        setAccountType(accountTypeForFirebaseUser(fbUser));
+        syncAccountProvider(fbUser)
+          .then(setAccountType)
+          .catch((error) => {
+            console.warn('Could not sync account provider', error);
+          });
         touchLastSeen(fbUser.uid);
         syncTimezone(fbUser.uid);
         unsubProfile = watchUserProfile(fbUser.uid, (p) => {
@@ -156,8 +172,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(linkedUser);
-    await syncAccountProvider(linkedUser);
+    setAccountType(await syncAccountProvider(linkedUser));
   }, [user]);
+
+  const linkEmailAccount = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      if (!user) throw new Error('No signed-in user');
+      if (accountTypeForFirebaseUser(user) !== 'anonymous') return;
+
+      const originalUid = user.uid;
+      const linkedUser = await linkAnonymousUserToEmail(user, email, password);
+
+      if (linkedUser.uid !== originalUid) {
+        throw new Error('Account linking changed the Firebase UID unexpectedly');
+      }
+
+      setUser(linkedUser);
+      setAccountType(await syncAccountProvider(linkedUser));
+    },
+    [user]
+  );
 
   const dismissWelcome = () => {
     localStorage.setItem('sbp_seen_welcome', '1');
@@ -173,11 +207,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         claimsLoading,
         role,
         isTeacher: role === 'teacher',
-        isAnonymous: user?.isAnonymous ?? true,
+        isAnonymous: accountType === 'anonymous',
+        accountType,
         isFirstVisit,
         refreshClaims,
         verifyTeacher,
         linkGoogleAccount,
+        linkEmailAccount,
         dismissWelcome,
       }}
     >

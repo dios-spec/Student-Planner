@@ -5,10 +5,11 @@ export function accountTypeFromProfile(profile: unknown): AccountType {
   if (
     profile &&
     typeof profile === 'object' &&
-    'accountType' in profile &&
-    (profile as { accountType?: unknown }).accountType === 'google'
+    'accountType' in profile
   ) {
-    return 'google';
+    const accountType = (profile as { accountType?: unknown }).accountType;
+    if (accountType === 'google') return 'google';
+    if (accountType === 'email') return 'email';
   }
   return 'anonymous';
 }
@@ -20,23 +21,37 @@ export default function AccountTypeBadge({
   accountType: AccountType;
   className?: string;
 }) {
-  const google = accountType === 'google';
+  const secured = accountType !== 'anonymous';
+
+  const label =
+    accountType === 'google'
+      ? 'Google linked'
+      : accountType === 'email'
+        ? 'Email linked'
+        : 'Anonymous';
+
+  const title =
+    accountType === 'google'
+      ? 'Google-linked account'
+      : accountType === 'email'
+        ? 'Email/password-linked account'
+        : 'Anonymous Firebase account';
 
   return (
     <span
       className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
-        google
+        secured
           ? 'border-success/30 bg-success-soft text-success'
           : 'border-line bg-surface-alt text-ink-soft'
       } ${className}`}
-      title={google ? 'Google-linked account' : 'Anonymous Firebase account'}
+      title={title}
     >
-      {google ? (
+      {secured ? (
         <BadgeCheck size={12} aria-hidden="true" />
       ) : (
         <CircleUserRound size={12} aria-hidden="true" />
       )}
-      {google ? 'Google linked' : 'Anonymous'}
+      {label}
     </span>
   );
 }

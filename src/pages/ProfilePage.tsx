@@ -22,7 +22,7 @@ import MeritSummaryCard from '../components/merit/MeritSummaryCard';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
-  const { user, profile, isTeacher, claimsLoading } = useAuth();
+  const { user, profile, isTeacher, claimsLoading, accountType } = useAuth();
   const { posts } = useUserPosts(user?.uid);
   const [editOpen, setEditOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
@@ -56,7 +56,7 @@ export default function ProfilePage() {
             </div>
             <div className="mt-1 flex flex-wrap items-center gap-1.5">
               <RoleBadge teacher={isTeacher} />
-              <AccountTypeBadge accountType={user?.isAnonymous ? 'anonymous' : 'google'} />
+              <AccountTypeBadge accountType={accountType} />
             </div>
             {profile.bio && <p className="truncate text-sm text-ink-soft">"{profile.bio}"</p>}
             <p className="mt-0.5 text-sm font-medium text-ink">{posts?.length ?? 0} posts</p>
@@ -196,14 +196,19 @@ export default function ProfilePage() {
         <div className="flex items-start gap-2 rounded-2xl bg-surface-alt p-3.5 text-xs text-ink-soft">
           <Info size={14} className="mt-0.5 shrink-0" />
           <span>
-            {user?.isAnonymous ? (
+            {accountType === 'anonymous' ? (
               <>
-                Your sign-in is currently anonymous. Your Google email is not required to use Buddy Planner,
-                but linking Google gives you a recovery path if you change devices or lose local app data.
+                Your sign-in is currently anonymous. Google or Email/Password is not required to use Buddy Planner,
+                but linking one gives you a recovery path if you change devices or lose local app data.
+              </>
+            ) : accountType === 'google' ? (
+              <>
+                Your Buddy Planner account is linked to Google. Your Google email is never shown on your public
+                Buddy profile; classmates only see the profile information you choose to share.
               </>
             ) : (
               <>
-                Your Buddy Planner account is linked to Google. Your Google email is never shown on your public
+                Your Buddy Planner account is linked with Email/Password. Your email is never shown on your public
                 Buddy profile; classmates only see the profile information you choose to share.
               </>
             )}
