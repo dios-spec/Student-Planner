@@ -1,0 +1,14 @@
+﻿[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "app.vercel.student_collab_7th.twa",
+      "sha256_cert_fingerprints": [
+        "8B:88:8A:3B:BD:89:29:5E:BB:08:A2:C7:36:9F:58:62:0C:34:FA:45:58:48:DC:FA:D6:55:DD:FB:50:08:4F:1E"
+      ]
+    }
+  }
+]
