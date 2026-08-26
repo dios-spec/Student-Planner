@@ -2,7 +2,7 @@
   "rewrites": [
     {
       "source": "/__/auth/:path*",
-      "destination": "https://${FIREBASE_AUTH_HOST}/__/auth/:path*"
+      "destination": "https://studentplanner-7553f.firebaseapp.com/__/auth/:path*"
     }
   ]
 }
