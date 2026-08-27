@@ -164,6 +164,7 @@ export default function UploadStudyMaterial({ open, onClose }: { open: boolean; 
           </div>
           {subject === '__custom' && (
             <input
+              aria-label="Custom subject name"
               value={customSubject}
               onChange={(e) => setCustomSubject(e.target.value)}
               placeholder="Subject name"
@@ -177,6 +178,7 @@ export default function UploadStudyMaterial({ open, onClose }: { open: boolean; 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-ink">Chapter</label>
             <input
+              aria-label="Chapter"
               value={chapter}
               onChange={(e) => setChapter(e.target.value)}
               placeholder="e.g. Chapter 5"
@@ -187,6 +189,7 @@ export default function UploadStudyMaterial({ open, onClose }: { open: boolean; 
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-ink">Title</label>
             <input
+              aria-label="Title"
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g. Photosynthesis map"
@@ -199,6 +202,7 @@ export default function UploadStudyMaterial({ open, onClose }: { open: boolean; 
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">What does it cover? (optional)</label>
           <textarea
+              aria-label="What does it cover? (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="A short description helps others find it"
@@ -206,7 +210,7 @@ export default function UploadStudyMaterial({ open, onClose }: { open: boolean; 
             rows={2}
             className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-accent"
           />
-          <p className="mt-1 text-right text-[11px] text-ink-soft">{description.length}/240</p>
+          <p className="mt-1 text-right text-2xs text-ink-soft">{description.length}/240</p>
         </div>
 
         <button

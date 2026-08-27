@@ -21,7 +21,7 @@ export default function ExamCountdowns() {
           </span>
           <div>
             <h3 className="text-sm font-semibold text-ink">Exam countdowns</h3>
-            <p className="text-[11px] text-ink-soft">Next tests for {activeClass}</p>
+            <p className="text-2xs text-ink-soft">Next tests for {activeClass}</p>
           </div>
         </div>
         <button type="button" onClick={() => navigate('/upcoming')} className="flex items-center gap-0.5 text-xs font-semibold text-accent">
@@ -42,12 +42,12 @@ export default function ExamCountdowns() {
             >
               <div className="mb-2 flex items-center justify-between gap-2">
                 <SubjectPill subjectId={exam.subject} size="sm" />
-                <span className={`rounded-full px-2 py-0.5 text-[11px] font-bold ${urgent ? 'bg-coral-soft text-coral' : 'bg-accent-soft text-accent'}`}>
+                <span className={`rounded-full px-2 py-0.5 text-2xs font-bold ${urgent ? 'bg-coral-soft text-coral' : 'bg-accent-soft text-accent'}`}>
                   {daysLeftLabel(examDate)}
                 </span>
               </div>
               <p className="truncate text-sm font-semibold text-ink">{exam.title}</p>
-              <p className="mt-1 truncate text-[11px] text-ink-soft">{exam.portion ? `Portion: ${exam.portion}` : 'Open test details'}</p>
+              <p className="mt-1 truncate text-2xs text-ink-soft">{exam.portion ? `Portion: ${exam.portion}` : 'Open test details'}</p>
             </button>
           );
         })}

@@ -24,7 +24,7 @@ export default function SharedPreview({
     >
       <div className="relative h-16 w-16 shrink-0 bg-black/10">
         {img ? (
-          <img src={img} alt="" className="h-full w-full object-cover" />
+          <img loading="lazy" decoding="async" src={img} alt="" className="h-full w-full object-cover" />
         ) : (
           <div className="flex h-full w-full items-center justify-center">
             <ImageIcon size={20} className="opacity-50" />

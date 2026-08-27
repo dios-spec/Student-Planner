@@ -2,7 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Maximize2, Mic, MicOff, Minimize2, PhoneOff, Volume2, VolumeX } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import { useWebRTCCall } from '../../hooks/useWebRTCCall';
-import { leaveCall } from '../../firebase/calls';
+import { announceCallEnded, leaveCall } from '../../firebase/calls';
+import { closeCallNotifications } from '../../firebase/push';
 import { useAuth } from '../../context/AuthContext';
 import { useLiveProfiles, liveName, liveAvatar } from '../../hooks/useLiveProfiles';
 import { useLiveConversation } from '../../hooks/useLiveConversation';
@@ -29,7 +30,7 @@ export default function CallScreen({
   onRestore: () => void;
 }) {
   const { user } = useAuth();
-  const { muted, toggleMute, speakerOn, toggleSpeaker } = useWebRTCCall(call.id, user?.uid || null, call);
+  const { muted, toggleMute, speakerOn, toggleSpeaker, mediaError } = useWebRTCCall(call.id, user?.uid || null, call);
   const [elapsed, setElapsed] = useState(0);
   const startRef = useRef(Date.now());
 
@@ -67,6 +68,12 @@ export default function CallScreen({
     } catch (err) {
       console.error('[CALL] leaveCall failed, closing UI anyway:', err);
     } finally {
+      // Clear this device's own ringing notification, and -- if we are the one
+      // who started the ring -- tell the other side's devices to clear theirs.
+      void closeCallNotifications(call.id);
+      if (user && call.callerId === user.uid) {
+        void announceCallEnded(call, user.uid).catch(() => {});
+      }
       onClose();
     }
   }
@@ -94,7 +101,7 @@ export default function CallScreen({
 
           <button
             onClick={toggleMute}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${muted ? 'bg-white text-ink' : 'bg-white/10 text-white'}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${muted ? 'bg-white text-ink' : 'bg-white/10 text-white'}`}
             aria-label={muted ? 'Unmute' : 'Mute'}
           >
             {muted ? <MicOff size={16} /> : <Mic size={16} />}
@@ -102,7 +109,7 @@ export default function CallScreen({
 
           <button
             onClick={toggleSpeaker}
-            className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${speakerOn ? 'bg-white/10 text-white' : 'bg-white text-ink'}`}
+            className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full ${speakerOn ? 'bg-white/10 text-white' : 'bg-white text-ink'}`}
             aria-label={speakerOn ? 'Turn speaker off' : 'Turn speaker on'}
             title={speakerOn ? 'Speaker on' : 'Speaker off'}
           >
@@ -111,7 +118,7 @@ export default function CallScreen({
 
           <button
             onClick={hangUp}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-coral text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-coral text-white"
             aria-label="End call"
           >
             <PhoneOff size={16} />
@@ -119,7 +126,7 @@ export default function CallScreen({
 
           <button
             onClick={onRestore}
-            className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/10 text-white"
+            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/10 text-white"
             aria-label="Expand call"
           >
             <Maximize2 size={16} />
@@ -154,7 +161,15 @@ export default function CallScreen({
         <div className="text-center">
           <h1 className="font-display text-2xl font-bold text-white">{title}</h1>
           {!isGroup && <StudentMeritPill uid={otherId} variant="dark" />}
-          {connected ? (
+          {mediaError ? (
+            <p className="mt-2 rounded-xl bg-coral/20 px-3 py-2 text-sm text-rose-100" role="alert">
+              {mediaError === 'denied'
+                ? 'Buddy Planner cannot use your microphone. Allow microphone access in your browser settings, then call again.'
+                : mediaError === 'unavailable'
+                ? 'No microphone was found, or another app is using it. Close that app and call again.'
+                : 'Could not start the audio connection. End the call and try again.'}
+            </p>
+          ) : connected ? (
             <p key="timer" className="animate-call-timer-in mt-1 text-sm text-white/60">{fmt(elapsed)}</p>
           ) : (
             <p className="mt-1 flex items-center justify-center gap-1 text-sm text-white/60">

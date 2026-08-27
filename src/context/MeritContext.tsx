@@ -1,36 +1,26 @@
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useAuth } from './AuthContext';
-import {
-  calculateMeritStats,
-  earnedMeritBadges,
-  watchAllMeritRecords,
-  watchMeritProfiles,
-  type MeritBadge,
-  type MeritStats,
-} from '../firebase/merits';
-import type { MeritRecord, StudentProfile } from '../types';
+import { watchMeritProfiles } from '../firebase/merits';
+import type { StudentProfile } from '../types';
 
-const EMPTY_STATS: MeritStats = {
-  merit: 0,
-  demerit: 0,
-  net: 0,
-  meritAwards: 0,
-  demeritAwards: 0,
-};
-
-interface MeritUserData {
-  records: MeritRecord[];
-  stats: MeritStats;
-  badges: MeritBadge[];
-}
-
+/**
+ * Live profile roster, shared app-wide.
+ *
+ * This context used to ALSO hold a school-wide merit listener (the newest 400
+ * records). That was wrong twice over: it was mounted for every user on every
+ * app open, so every student downloaded school-wide merit history they never
+ * saw; and it was used as a per-student source of truth, so once the school
+ * passed 400 records, totals and earned badges silently shrank for anyone
+ * whose points were awarded earlier in the year.
+ *
+ * Merit records are now read by whoever actually needs them, at the right
+ * scope: useMeritRecords(uid) subscribes to one student, and MeritPage's
+ * teacher roster subscribes to one class. Profiles stay here because names and
+ * avatars really are needed everywhere.
+ */
 interface MeritContextValue {
-  records: MeritRecord[];
   profiles: Record<string, StudentProfile>;
   loading: boolean;
-  recordsFor: (uid: string) => MeritRecord[];
-  statsFor: (uid: string) => MeritStats;
-  badgesFor: (uid: string) => MeritBadge[];
   profileFor: (uid: string) => StudentProfile | undefined;
   isTeacherUid: (uid: string) => boolean;
 }
@@ -39,36 +29,22 @@ const MeritContext = createContext<MeritContextValue | null>(null);
 
 export function MeritProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
-  const [records, setRecords] = useState<MeritRecord[]>([]);
   const [profileList, setProfileList] = useState<StudentProfile[]>([]);
-  const [recordsReady, setRecordsReady] = useState(false);
   const [profilesReady, setProfilesReady] = useState(false);
 
   useEffect(() => {
     if (!user) {
-      setRecords([]);
       setProfileList([]);
-      setRecordsReady(false);
       setProfilesReady(false);
       return;
     }
 
-    setRecordsReady(false);
     setProfilesReady(false);
 
-    const unsubRecords = watchAllMeritRecords((next) => {
-      setRecords(next);
-      setRecordsReady(true);
-    });
-    const unsubProfiles = watchMeritProfiles((next) => {
+    return watchMeritProfiles((next) => {
       setProfileList(next);
       setProfilesReady(true);
     });
-
-    return () => {
-      unsubRecords();
-      unsubProfiles();
-    };
   }, [user]);
 
   const profiles = useMemo(() => {
@@ -77,33 +53,12 @@ export function MeritProvider({ children }: { children: ReactNode }) {
     return map;
   }, [profileList]);
 
-  const dataByStudent = useMemo(() => {
-    const grouped: Record<string, MeritRecord[]> = {};
-    for (const record of records) {
-      (grouped[record.studentId] ||= []).push(record);
-    }
-
-    const result: Record<string, MeritUserData> = {};
-    for (const [uid, studentRecords] of Object.entries(grouped)) {
-      result[uid] = {
-        records: studentRecords,
-        stats: calculateMeritStats(studentRecords),
-        badges: earnedMeritBadges(studentRecords),
-      };
-    }
-    return result;
-  }, [records]);
-
   const value = useMemo<MeritContextValue>(() => ({
-    records,
     profiles,
-    loading: !recordsReady || !profilesReady,
-    recordsFor: (uid) => dataByStudent[uid]?.records || [],
-    statsFor: (uid) => dataByStudent[uid]?.stats || EMPTY_STATS,
-    badgesFor: (uid) => dataByStudent[uid]?.badges || [],
+    loading: !profilesReady,
     profileFor: (uid) => profiles[uid],
     isTeacherUid: (uid) => profiles[uid]?.role === 'teacher',
-  }), [dataByStudent, profiles, profilesReady, records, recordsReady]);
+  }), [profiles, profilesReady]);
 
   return <MeritContext.Provider value={value}>{children}</MeritContext.Provider>;
 }

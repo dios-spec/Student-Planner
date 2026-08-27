@@ -15,7 +15,7 @@ export default function TeacherClassTarget({
     <div className="rounded-2xl border border-accent/25 bg-accent-soft/40 p-3">
       <div className="mb-2 flex items-center justify-between gap-3">
         <p className="text-sm font-semibold text-ink">{label}</p>
-        <span className="rounded-full bg-surface px-2 py-0.5 text-[11px] font-semibold text-accent">
+        <span className="rounded-full bg-surface px-2 py-0.5 text-2xs font-semibold text-accent">
           Teacher
         </span>
       </div>

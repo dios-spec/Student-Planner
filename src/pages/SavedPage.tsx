@@ -51,14 +51,14 @@ export default function SavedPage() {
             <div key={item.id} className="flex items-center gap-3 px-2 py-3">
               <button onClick={() => open(item)} className="flex flex-1 items-center gap-3 text-left">
                 {item.imageUrl ? (
-                  <img src={item.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
+                  <img loading="lazy" decoding="async" src={item.imageUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                 ) : (
                   <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-lg bg-accent-soft text-accent">
                     <Bookmark size={18} />
                   </div>
                 )}
                 <div className="min-w-0 flex-1">
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">{TYPE_LABEL[item.type]}</p>
+                  <p className="text-2xs font-semibold uppercase tracking-wide text-ink-soft">{TYPE_LABEL[item.type]}</p>
                   <p className="truncate text-sm text-ink">{item.title}</p>
                   {item.authorName && <p className="truncate text-xs text-ink-soft">{item.authorName}</p>}
                 </div>

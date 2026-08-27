@@ -19,6 +19,10 @@ export function useMyImportant(userId: string | undefined) {
         if (data.important) set.add(data.itemId);
       });
       setImportantSet(set);
+    },
+    (err) => {
+      console.error('[PLANNER] useMyImportant listener failed:', err);
+      setImportantSet(new Set());
     });
   }, [userId]);
 

@@ -16,6 +16,10 @@ export function useVoiceRecorder() {
   const streamRef = useRef<MediaStream | null>(null);
   const timerRef = useRef<number | null>(null);
   const resolveRef = useRef<((b: Blob | null) => void) | null>(null);
+  // Holds a finished recording that nobody was waiting for yet -- specifically
+  // the one produced when the 2-minute cap stops the recorder on its own.
+  const pendingBlobRef = useRef<Blob | null>(null);
+  const startedAtRef = useRef(0);
 
   const cleanup = useCallback(() => {
     if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null; }
@@ -60,17 +64,33 @@ export function useVoiceRecorder() {
       mr.onstop = () => {
         const blob = new Blob(chunksRef.current, { type: mr.mimeType || 'audio/webm' });
         cleanup();
-        resolveRef.current?.(blob);
-        resolveRef.current = null;
+        if (resolveRef.current) {
+          resolveRef.current(blob);
+          resolveRef.current = null;
+        } else {
+          // Hitting MAX_SECONDS stops the recorder before the user pressed
+          // Send, so resolveRef is still null. The old code dropped the blob on
+          // the floor here and left `recording: true`, so the bar froze at 2:00
+          // and pressing Send afterwards returned null -- the entire two-minute
+          // recording was silently lost. Keep it for the next stop() instead.
+          pendingBlobRef.current = blob;
+        }
+        setState((s) => ({ ...s, recording: false }));
       };
+      pendingBlobRef.current = null;
+      startedAtRef.current = Date.now();
       mr.start();
       setState({ recording: true, seconds: 0, error: null });
       timerRef.current = window.setInterval(() => {
-        setState((s) => {
-          const next = s.seconds + 1;
-          if (next >= MAX_SECONDS) stopInternal();
-          return { ...s, seconds: next };
-        });
+        // The cap check used to live inside a setState updater. React may run
+        // an updater more than once (StrictMode, discarded concurrent renders),
+        // and stopInternal() is a side effect -- it does not belong there.
+        const elapsed = Math.min(
+          MAX_SECONDS,
+          Math.floor((Date.now() - startedAtRef.current) / 1000)
+        );
+        setState((s) => (s.seconds === elapsed ? s : { ...s, seconds: elapsed }));
+        if (elapsed >= MAX_SECONDS) stopInternal();
       }, 1000);
       return true;
     } catch {
@@ -89,7 +109,10 @@ export function useVoiceRecorder() {
     return new Promise((resolve) => {
       const duration = state.seconds;
       if (!mediaRef.current || mediaRef.current.state === 'inactive') {
-        resolve({ blob: null, duration });
+        // May be a recording the 2-minute cap already finished for us.
+        const pending = pendingBlobRef.current;
+        pendingBlobRef.current = null;
+        resolve({ blob: pending, duration });
         setState((s) => ({ ...s, recording: false }));
         return;
       }
@@ -102,6 +125,7 @@ export function useVoiceRecorder() {
   /** Cancels recording and discards the audio. */
   const cancel = useCallback(() => {
     resolveRef.current = null;
+    pendingBlobRef.current = null;
     if (mediaRef.current && mediaRef.current.state !== 'inactive') {
       mediaRef.current.onstop = () => cleanup();
       mediaRef.current.stop();

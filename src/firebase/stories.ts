@@ -71,7 +71,15 @@ export function watchActiveStories(cb: (stories: Story[]) => void) {
         return bt - at;
       });
     cb(stories);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[STORIES] watchActiveStories failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function markStorySeen(storyId: string, uid: string) {

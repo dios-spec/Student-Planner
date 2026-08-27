@@ -64,7 +64,7 @@ export default function SmartDashboard() {
           <div className="flex gap-2 overflow-x-auto">
             {todayPeriods.map((p) => (
               <div key={p.period} className="shrink-0 rounded-xl bg-surface-alt px-3 py-2 text-center">
-                <p className="text-[10px] font-bold text-ink-soft">P{p.period}</p>
+                <p className="text-3xs font-bold text-ink-soft">P{p.period}</p>
                 <p className="max-w-20 truncate text-xs font-semibold text-ink">{p.subject}</p>
               </div>
             ))}
@@ -80,7 +80,7 @@ export default function SmartDashboard() {
               <button key={item.id} onClick={() => navigate('/upcoming')} className="flex w-full items-center gap-2.5 text-left">
                 <FlaskConical size={16} className="shrink-0 text-accent" />
                 <span className="min-w-0 flex-1 truncate text-sm text-ink">{CATEGORY_LABEL[item.category] || 'Item'}: {item.title}</span>
-                <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-[11px] font-semibold text-accent">{daysLeftLabel(item.dueDate || item.date)}</span>
+                <span className="shrink-0 rounded-full bg-accent-soft px-2 py-0.5 text-2xs font-semibold text-accent">{daysLeftLabel(item.dueDate || item.date)}</span>
               </button>
             ))}
           </div>

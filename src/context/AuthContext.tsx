@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react';
 import { getIdTokenResult, onIdTokenChanged, type User } from 'firebase/auth';
 import { auth, ensureAnonymousUser } from '../firebase/config';
 import { ensureUserProfile, watchUserProfile, touchLastSeen, syncTimezone } from '../firebase/users';
@@ -49,59 +49,119 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [claimsLoading, setClaimsLoading] = useState(true);
   const [role, setRole] = useState<AppRole>('student');
+  const roleRef = useRef<AppRole>('student');
+
+  /**
+   * Single place where the role actually changes.
+   *
+   * Students and teachers read different collections (messages vs
+   * teacherMessages, merit visibility, class rosters). The manual verification
+   * path cleared the role-scoped caches, but the automatic token-refresh path
+   * did not — so when an administrator removed a teacher claim, Firebase
+   * silently renewed the token, the role flipped to 'student', and the module
+   * level snapshot cache kept serving teacher-scoped data to the demoted user.
+   */
+  const applyRole = useCallback((nextRole: AppRole) => {
+    if (roleRef.current === nextRole) return;
+    roleRef.current = nextRole;
+    clearSnapshotCache();
+    invalidateRosterCache();
+    setRole(nextRole);
+  }, []);
   const [accountType, setAccountType] = useState<AccountType>('anonymous');
   const [isFirstVisit, setIsFirstVisit] = useState(false);
 
   useEffect(() => {
-    let unsubProfile: (() => void) | undefined;
+    let cancelled = false;
+    let teardown: (() => void) | undefined;
+
+    /**
+     * The previous implementation did `let unsubProfile; ... return () =>
+     * unsubProfile?.()`. unsubProfile is only assigned deep inside an async
+     * promise chain, but the cleanup function runs synchronously at unmount —
+     * so if auth had not resolved yet the cleanup was a no-op and EVERYTHING
+     * created afterwards leaked forever: the profile onSnapshot listener, the
+     * onIdTokenChanged listener, the 60s lastSeen heartbeat (still writing to
+     * Firestore) and the visibilitychange handler. React StrictMode mounts,
+     * unmounts and remounts, so this leaked on every single dev page load.
+     */
+    const registerTeardown = (fn: () => void) => {
+      if (cancelled) {
+        fn();
+        return;
+      }
+      teardown = fn;
+    };
 
     completePendingGoogleLink()
       .catch((error) => {
+        // A failed Google redirect link must not abort sign-in. Rethrowing here
+        // skipped ensureAnonymousUser() entirely, so `user` stayed null forever
+        // and every page rendered its `if (!user) return null` branch — a blank
+        // app with no error and no recovery short of a manual reload.
         console.error('Could not complete Google account linking', error);
-        throw error;
+        return null;
       })
       .then((redirectUser) => redirectUser || ensureAnonymousUser())
       .then(async (fbUser) => {
+        if (cancelled) return;
+
         setUser(fbUser);
         const seenBefore = localStorage.getItem('sbp_seen_welcome');
         if (!seenBefore) setIsFirstVisit(true);
         try {
           const tokenResult = await getIdTokenResult(fbUser);
-          setRole(tokenResult.claims.role === 'teacher' ? 'teacher' : 'student');
+          applyRole(tokenResult.claims.role === 'teacher' ? 'teacher' : 'student');
         } catch (error) {
           console.warn('Could not read role claim', error);
-          setRole('student');
+          applyRole('student');
         } finally {
           setClaimsLoading(false);
         }
+
+        if (cancelled) return;
+
         await ensureUserProfile(fbUser.uid);
+
+        if (cancelled) return;
 
         // Client providerData gives an immediate, factual account state.
         // The server then verifies it with Firebase Admin and syncs the
         // public profile badge without trusting a client-written field.
         setAccountType(accountTypeForFirebaseUser(fbUser));
         syncAccountProvider(fbUser)
-          .then(setAccountType)
+          .then((next) => {
+            if (!cancelled) setAccountType(next);
+          })
           .catch((error) => {
             console.warn('Could not sync account provider', error);
           });
         touchLastSeen(fbUser.uid);
         syncTimezone(fbUser.uid);
-        unsubProfile = watchUserProfile(fbUser.uid, (p) => {
-          setProfile(p);
-          setLoading(false);
-        });
+
+        const unsubscribeProfile = watchUserProfile(
+          fbUser.uid,
+          (p) => {
+            setProfile(p);
+            setLoading(false);
+          },
+          () => {
+            // The listener is dead and will never fire again. Release the
+            // loading gate so the app renders instead of spinning forever.
+            setLoading(false);
+          }
+        );
 
         // Keep the role UI in sync when Firebase automatically renews a token
         // (including when an administrator later removes a claim).
         const unsubscribeClaims = onIdTokenChanged(auth, (changedUser) => {
           if (!changedUser || changedUser.uid !== fbUser.uid) {
-            setRole('student');
+            applyRole('student');
             return;
           }
           getIdTokenResult(changedUser)
             .then((tokenResult) => {
-              setRole(tokenResult.claims.role === 'teacher' ? 'teacher' : 'student');
+              applyRole(tokenResult.claims.role === 'teacher' ? 'teacher' : 'student');
             })
             .catch((error) => console.warn('Could not refresh role claim', error));
         });
@@ -117,16 +177,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         };
         document.addEventListener('visibilitychange', onVisible);
 
-        const cleanupHeartbeat = () => {
+        registerTeardown(() => {
+          unsubscribeProfile();
+          unsubscribeClaims();
           window.clearInterval(heartbeat);
           document.removeEventListener('visibilitychange', onVisible);
-        };
-        const prevUnsub = unsubProfile;
-        unsubProfile = () => {
-          prevUnsub?.();
-          unsubscribeClaims();
-          cleanupHeartbeat();
-        };
+        });
       })
       .catch((err) => {
         console.error('Auth failed', err);
@@ -134,8 +190,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setLoading(false);
       });
 
-    return () => unsubProfile?.();
-  }, []);
+    return () => {
+      cancelled = true;
+      teardown?.();
+    };
+  }, [applyRole]);
 
   const refreshClaims = useCallback(async (): Promise<AppRole> => {
     if (!user) return 'student';
@@ -143,16 +202,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const tokenResult = await getIdTokenResult(user, true);
       const nextRole: AppRole = tokenResult.claims.role === 'teacher' ? 'teacher' : 'student';
-      // BUG-15: student and teacher see different collections (messages vs
-      // teacherMessages, merit visibility, etc). Cached snapshots from the old
-      // role must not survive the switch.
-      if (nextRole !== role) { clearSnapshotCache(); invalidateRosterCache(); }
-      setRole(nextRole);
+      applyRole(nextRole);
       return nextRole;
     } finally {
       setClaimsLoading(false);
     }
-  }, [user, role]);
+  }, [applyRole, user]);
 
   const verifyTeacher = useCallback(async (password: string): Promise<void> => {
     if (!user) throw new Error('No signed-in user');
@@ -182,7 +237,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
 
     setUser(linkedUser);
-    setAccountType(await syncAccountProvider(linkedUser));
+    // The Firebase link has already succeeded and cannot be undone. Trust the
+    // client's providerData immediately; the server sync only refreshes the
+    // public badge, so a transient 500 there must not surface to the user as
+    // "linking failed" and leave the upgrade prompt nagging a linked account.
+    setAccountType(accountTypeForFirebaseUser(linkedUser));
+    syncAccountProvider(linkedUser)
+      .then(setAccountType)
+      .catch((error) => console.warn('Could not sync account provider', error));
   }, [user]);
 
   const linkEmailAccount = useCallback(
@@ -198,7 +260,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
 
       setUser(linkedUser);
-      setAccountType(await syncAccountProvider(linkedUser));
+      setAccountType(accountTypeForFirebaseUser(linkedUser));
+      syncAccountProvider(linkedUser)
+        .then(setAccountType)
+        .catch((error) => console.warn('Could not sync account provider', error));
     },
     [user]
   );

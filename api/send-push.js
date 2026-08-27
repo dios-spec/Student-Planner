@@ -4,13 +4,24 @@ import { getMessaging } from 'firebase-admin/messaging';
 import { adminApp, asStrings } from './_lib/firebaseAdmin.js';
 import { checkPushAllowed } from './_lib/notificationGate.js';
 
-const MAX_BODY_BYTES = 4096;
+const MAX_BODY_BYTES = 16384;
+/** Notifications accepted in one request. Keeps the transaction and the FCM
+ *  batch well inside their limits while collapsing a class fan-out from one
+ *  serverless invocation per recipient into a handful. */
+const MAX_BATCH = 50;
+const MAX_TOKENS_PER_USER = 10;
 const VALID_TYPES = new Set([
   'dm', 'groupMessage', 'reply', 'comment', 'groupInvite',
   'adminPromote', 'addedToGroup', 'homework', 'exam', 'announcement',
   'incomingCall', 'missedCall', 'postLike', 'classMessage',
   'classReaction', 'studyHelp', 'storyNew', 'reelLike', 'storyLike',
+  // Control payload: tells the service worker to take a ringing call
+  // notification off the lock screen. Never displayed.
+  'callEnded',
 ]);
+
+/** Types the recipient must not be able to mute into a stuck UI. */
+const CONTROL_TYPES = new Set(['callEnded']);
 
 function safeText(value, max, fallback = '') {
   return typeof value === 'string' ? value.slice(0, max) : fallback;
@@ -50,6 +61,48 @@ function uniqueTokens(source) {
   return [...new Set(source.filter((value) => typeof value === 'string' && value))].slice(0, 500);
 }
 
+/** Read the notification ids from either the single or the batch shape. */
+function requestedIds(body) {
+  const raw = Array.isArray(body.notificationIds)
+    ? body.notificationIds
+    : body.notificationId !== undefined
+      ? [body.notificationId]
+      : [];
+
+  const ids = [];
+  for (const value of raw) {
+    if (typeof value !== 'string' || !/^[A-Za-z0-9_-]{1,200}$/.test(value)) return null;
+    if (!ids.includes(value)) ids.push(value);
+  }
+  return ids;
+}
+
+function messageDataFor(notificationId, notif) {
+  // Custom data goes first; reserved routing/identity fields are written last
+  // so notification data can never override them.
+  return asStrings({
+    ...safeExtra(notif.data),
+    notificationId,
+    type: notif.type,
+    title: safeText(notif.title, 120, 'Buddy Planner'),
+    body: safeText(notif.body, 500),
+    icon: safeIcon(notif.icon),
+    route: safeRoute(notif.route),
+  });
+}
+
+function webpushOptionsFor(type) {
+  const urgent = type === 'incomingCall' || type === 'callEnded';
+  return {
+    headers: {
+      Urgency: urgent ? 'high' : 'normal',
+      // A ring is worthless if it lands late; a dismissal is worthless if it
+      // lands after the notification has already been tapped.
+      TTL: type === 'incomingCall' ? '60' : type === 'callEnded' ? '120' : '86400',
+    },
+  };
+}
+
 export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'no-store');
   res.setHeader('Allow', 'POST');
@@ -62,8 +115,6 @@ export default async function handler(req, res) {
   if (Number.isFinite(contentLength) && contentLength > MAX_BODY_BYTES) {
     return res.status(413).json({ error: 'Request too large' });
   }
-
-  let notifRef;
 
   try {
     adminApp();
@@ -86,175 +137,207 @@ export default async function handler(req, res) {
       return res.status(413).json({ error: 'Request too large' });
     }
 
-    const notificationId = body.notificationId;
-    if (
-      typeof notificationId !== 'string' ||
-      !/^[A-Za-z0-9_-]{1,200}$/.test(notificationId)
-    ) {
+    const ids = requestedIds(body);
+    if (!ids || !ids.length) {
       return res.status(400).json({ error: 'Invalid notificationId' });
+    }
+    if (ids.length > MAX_BATCH) {
+      return res.status(400).json({ error: `At most ${MAX_BATCH} notifications per request` });
     }
 
     const db = getFirestore();
-    notifRef = db.collection('notifications').doc(notificationId);
+    const refs = ids.map((id) => db.collection('notifications').doc(id));
 
-    // Claim once before delivery so refreshing/retrying the endpoint cannot
-    // multiply-send the same notification.
-    const claim = await db.runTransaction(async (tx) => {
-      const snap = await tx.get(notifRef);
-      if (!snap.exists) return { status: 'missing' };
+    // Claim every notification in ONE transaction before delivery, so
+    // refreshing or retrying cannot multiply-send. Previously this was one
+    // transaction (and one whole HTTP request) per recipient.
+    const claims = await db.runTransaction(async (tx) => {
+      const snaps = await tx.getAll(...refs);
+      const result = [];
 
-      const notif = snap.data() || {};
-      if (!notif.fromUid || notif.fromUid !== decoded.uid) {
-        return { status: 'mismatch' };
-      }
-      if (notif.pushAttemptedAt) {
-        return { status: 'duplicate' };
-      }
+      snaps.forEach((snap, index) => {
+        const id = ids[index];
+        if (!snap.exists) { result.push({ id, status: 'missing' }); return; }
 
-      tx.update(notifRef, { pushAttemptedAt: FieldValue.serverTimestamp() });
-      return { status: 'claimed', notif };
+        const notif = snap.data() || {};
+        if (!notif.fromUid || notif.fromUid !== decoded.uid) {
+          result.push({ id, status: 'mismatch' });
+          return;
+        }
+        if (notif.pushAttemptedAt) { result.push({ id, status: 'duplicate' }); return; }
+
+        tx.update(refs[index], { pushAttemptedAt: FieldValue.serverTimestamp() });
+        result.push({ id, status: 'claimed', notif });
+      });
+
+      return result;
     });
 
-    if (claim.status === 'missing') {
-      return res.status(404).json({ error: 'Notification not found' });
-    }
-    if (claim.status === 'mismatch') {
-      return res.status(403).json({ error: 'Sender mismatch' });
-    }
-    if (claim.status === 'duplicate') {
-      return res.status(200).json({ sent: 0, reason: 'already-dispatched' });
-    }
+    const claimed = claims.filter(
+      (c) => c.status === 'claimed'
+        && typeof c.notif.userId === 'string'
+        && c.notif.userId
+        && VALID_TYPES.has(c.notif.type)
+    );
 
-    const notif = claim.notif || {};
-    if (!notif.userId || typeof notif.userId !== 'string') {
-      return res.status(400).json({ error: 'Invalid recipient' });
-    }
-    if (!VALID_TYPES.has(notif.type)) {
-      return res.status(400).json({ error: 'Invalid notification type' });
-    }
-
-    const userRef = db.collection('users').doc(notif.userId);
-    const deviceRef = db.collection('pushDevices').doc(notif.userId);
-    const [userSnap, deviceSnap] = await Promise.all([userRef.get(), deviceRef.get()]);
-
-    if (!userSnap.exists) {
-      return res.status(200).json({ sent: 0, reason: 'no-user' });
+    if (!claimed.length) {
+      const single = ids.length === 1 ? claims[0] : null;
+      if (single && single.status === 'missing') {
+        return res.status(404).json({ error: 'Notification not found' });
+      }
+      if (single && single.status === 'mismatch') {
+        return res.status(403).json({ error: 'Sender mismatch' });
+      }
+      return res.status(200).json({ sent: 0, reason: 'nothing-to-send' });
     }
 
-    const user = userSnap.data() || {};
-    const device = deviceSnap.exists ? (deviceSnap.data() || {}) : {};
+    // One read per distinct recipient instead of one per notification: a burst
+    // of messages to the same person no longer re-reads their profile.
+    const recipients = [...new Set(claimed.map((c) => c.notif.userId))];
+    const userRefs = recipients.map((uid) => db.collection('users').doc(uid));
+    const deviceRefs = recipients.map((uid) => db.collection('pushDevices').doc(uid));
+    const snaps = await db.getAll(...userRefs, ...deviceRefs);
 
-    const gate = checkPushAllowed(user, notif.type);
-    if (!gate.allowed) {
-      return res.status(200).json({ sent: 0, reason: gate.reason });
-    }
+    const users = new Map();
+    const devices = new Map();
+    recipients.forEach((uid, i) => {
+      const userSnap = snaps[i];
+      const deviceSnap = snaps[recipients.length + i];
+      users.set(uid, userSnap.exists ? (userSnap.data() || {}) : null);
+      devices.set(uid, deviceSnap.exists ? (deviceSnap.data() || {}) : {});
+    });
 
-    const privateTokens = uniqueTokens([
-      ...(Array.isArray(device.fcmTokens) ? device.fcmTokens : []),
-      ...(typeof device.fcmToken === 'string' ? [device.fcmToken] : []),
-    ]);
-    const legacyTokens = uniqueTokens([
-      ...(Array.isArray(user.fcmTokens) ? user.fcmTokens : []),
-      ...(typeof user.fcmToken === 'string' ? [user.fcmToken] : []),
-    ]);
-    const tokens = uniqueTokens([...privateTokens, ...legacyTokens]);
+    // Opportunistically migrate legacy public-profile token fields.
+    const migrations = [];
+    for (const uid of recipients) {
+      const user = users.get(uid);
+      if (!user) continue;
+      const legacy = uniqueTokens([
+        ...(Array.isArray(user.fcmTokens) ? user.fcmTokens : []),
+        ...(typeof user.fcmToken === 'string' ? [user.fcmToken] : []),
+      ]);
+      if (!legacy.length) continue;
 
-    // Opportunistically migrate old public-profile token fields into the
-    // private pushDevices document. Admin SDK bypasses client rules safely.
-    if (legacyTokens.length) {
-      const devicePatch = {
-        fcmToken:
-          typeof user.fcmToken === 'string' && user.fcmToken
-            ? user.fcmToken
-            : legacyTokens[0],
-        fcmTokens: FieldValue.arrayUnion(...legacyTokens),
-        pushUpdatedAt: FieldValue.serverTimestamp(),
-      };
+      const device = devices.get(uid) || {};
+      const merged = uniqueTokens([
+        ...(Array.isArray(device.fcmTokens) ? device.fcmTokens : []),
+        ...(typeof device.fcmToken === 'string' ? [device.fcmToken] : []),
+        ...legacy,
+      ]).slice(-MAX_TOKENS_PER_USER);
 
-      await Promise.allSettled([
-        deviceRef.set(devicePatch, { merge: true }),
-        userRef.update({
+      devices.set(uid, { ...device, fcmTokens: merged, fcmToken: device.fcmToken || merged[merged.length - 1] });
+
+      migrations.push(
+        db.collection('pushDevices').doc(uid).set(
+          { fcmTokens: merged, pushUpdatedAt: FieldValue.serverTimestamp() },
+          { merge: true }
+        ),
+        db.collection('users').doc(uid).update({
           fcmToken: FieldValue.delete(),
           fcmTokens: FieldValue.delete(),
           pushUpdatedAt: FieldValue.delete(),
-        }),
-      ]);
+        })
+      );
+    }
+    if (migrations.length) await Promise.allSettled(migrations);
+
+    // Build one flat list of messages, then hand FCM a single batch.
+    const messages = [];
+    const outcomes = [];
+
+    for (const claim of claimed) {
+      const notif = claim.notif;
+      const user = users.get(notif.userId);
+
+      if (!user) { outcomes.push({ id: claim.id, reason: 'no-user' }); continue; }
+
+      // Control payloads bypass the preference gate: they exist to CLEAR a
+      // notification, and a muted category must not be able to strand a
+      // ringing call on someone's lock screen.
+      if (!CONTROL_TYPES.has(notif.type)) {
+        const gate = checkPushAllowed(user, notif.type);
+        if (!gate.allowed) { outcomes.push({ id: claim.id, reason: gate.reason }); continue; }
+      }
+
+      const device = devices.get(notif.userId) || {};
+      const tokens = uniqueTokens([
+        ...(Array.isArray(device.fcmTokens) ? device.fcmTokens : []),
+        ...(typeof device.fcmToken === 'string' ? [device.fcmToken] : []),
+      ]).slice(-MAX_TOKENS_PER_USER);
+
+      if (!tokens.length) { outcomes.push({ id: claim.id, reason: 'no-token' }); continue; }
+
+      const data = messageDataFor(claim.id, notif);
+      const webpush = webpushOptionsFor(notif.type);
+
+      for (const token of tokens) {
+        messages.push({ token, data, webpush });
+        outcomes.push({ id: claim.id, token, pending: true });
+      }
     }
 
-    if (!tokens.length) {
-      return res.status(200).json({ sent: 0, reason: 'no-token' });
+    if (!messages.length) {
+      return res.status(200).json({ sent: 0, failed: 0, cleaned: 0, notifications: claimed.length });
     }
 
-    // Custom data goes first; reserved routing/identity fields are written
-    // last so notification data can never override them.
-    const data = asStrings({
-      ...safeExtra(notif.data),
-      notificationId,
-      type: notif.type,
-      title: safeText(notif.title, 120, 'Student Planner'),
-      body: safeText(notif.body, 500),
-      icon: safeIcon(notif.icon),
-      route: safeRoute(notif.route),
-    });
-
-    const isCall = notif.type === 'incomingCall';
-    const result = await getMessaging().sendEachForMulticast({
-      tokens,
-      data,
-      webpush: {
-        headers: {
-          Urgency: isCall ? 'high' : 'normal',
-          TTL: isCall ? '60' : '86400',
-        },
-      },
-    });
+    const result = await getMessaging().sendEach(messages);
 
     const invalidCodes = new Set([
       'messaging/registration-token-not-registered',
       'messaging/invalid-registration-token',
     ]);
 
-    const bad = [];
+    const bad = new Set();
     result.responses.forEach((response, index) => {
-      if (
-        !response.success &&
-        response.error?.code &&
-        invalidCodes.has(response.error.code)
-      ) {
-        bad.push(tokens[index]);
+      if (!response.success && response.error?.code && invalidCodes.has(response.error.code)) {
+        bad.add(messages[index].token);
       }
     });
 
-    if (bad.length) {
-      const privatePatch = {
-        fcmTokens: FieldValue.arrayRemove(...bad),
-        pushUpdatedAt: FieldValue.serverTimestamp(),
-      };
-      if (typeof device.fcmToken === 'string' && bad.includes(device.fcmToken)) {
-        privatePatch.fcmToken = FieldValue.delete();
+    if (bad.size) {
+      const dead = [...bad];
+      const cleanups = [];
+
+      for (const uid of recipients) {
+        const device = devices.get(uid) || {};
+        const held = uniqueTokens([
+          ...(Array.isArray(device.fcmTokens) ? device.fcmTokens : []),
+          ...(typeof device.fcmToken === 'string' ? [device.fcmToken] : []),
+        ]);
+        const remove = held.filter((token) => bad.has(token));
+        if (!remove.length) continue;
+
+        const patch = {
+          fcmTokens: FieldValue.arrayRemove(...remove),
+          pushUpdatedAt: FieldValue.serverTimestamp(),
+        };
+        if (typeof device.fcmToken === 'string' && remove.includes(device.fcmToken)) {
+          patch.fcmToken = FieldValue.delete();
+        }
+        // Keep the timestamped device list in step with the flat mirror,
+        // otherwise a dead token would be resurrected by the next client write.
+        if (Array.isArray(device.devices)) {
+          patch.devices = device.devices.filter(
+            (entry) => entry && typeof entry.token === 'string' && !bad.has(entry.token)
+          );
+        }
+
+        cleanups.push(db.collection('pushDevices').doc(uid).set(patch, { merge: true }));
       }
 
-      const legacyPatch = { fcmTokens: FieldValue.arrayRemove(...bad) };
-      if (typeof user.fcmToken === 'string' && bad.includes(user.fcmToken)) {
-        legacyPatch.fcmToken = FieldValue.delete();
-      }
-
-      await Promise.allSettled([
-        deviceRef.set(privatePatch, { merge: true }),
-        userRef.update(legacyPatch),
-      ]);
+      if (cleanups.length) await Promise.allSettled(cleanups);
+      console.warn('[PUSH API] removed', dead.length, 'invalid token(s)');
     }
 
     return res.status(200).json({
       sent: result.successCount,
       failed: result.failureCount,
-      cleaned: bad.length,
+      cleaned: bad.size,
+      notifications: claimed.length,
+      skipped: outcomes.filter((o) => o.reason).length,
     });
   } catch (err) {
     console.error('[PUSH API]', err instanceof Error ? err.message : 'Unknown error');
-
-    // A transient failure can be manually retried by clearing the claim in
-    // Firebase Console. We do not expose a client route for changing it.
     return res.status(500).json({ error: 'Push delivery failed' });
   }
 }

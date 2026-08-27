@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Modal from '../shared/Modal';
 import { uploadStoryImage, uploadStoryVideo } from '../../firebase/storage';
 import { createStory } from '../../firebase/stories';
@@ -13,6 +13,16 @@ export default function CreateStory({ open, onClose }: { open: boolean; onClose:
   const { user, profile } = useAuth();
   const { show } = useToast();
   const [preview, setPreview] = useState<string | null>(null);
+
+  // Blob URLs pin the whole selected file in memory until revoked. reset() only
+  // cleared the state, so every "Change file" tap and every cancelled upload
+  // leaked the full file for the life of the tab -- up to 30 MB per pick on
+  // Reels, which is enough to get the tab killed on a phone.
+  useEffect(() => {
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+
   const [file, setFile] = useState<File | null>(null);
   const [isVideo, setIsVideo] = useState(false);
   const [posting, setPosting] = useState(false);

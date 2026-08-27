@@ -89,7 +89,7 @@ export default function ShareSheet({
     <Modal open={!!content} onClose={onClose} title="Share to…" fullHeight>
       <div className="mb-3 flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
         <Search size={16} className="text-ink-soft" />
-        <input value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people…"
+        <input aria-label="Search people" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search people…"
           className="flex-1 bg-transparent text-sm outline-none placeholder:text-ink-soft" />
       </div>
 

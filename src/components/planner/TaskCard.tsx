@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DismissLayer from '../shared/DismissLayer';
 import { Check, MoreVertical, Pencil, Trash2, Star } from 'lucide-react';
 import type { PlannerItem } from '../../types';
 import SubjectPill from '../shared/SubjectPill';
@@ -50,7 +51,7 @@ export default function TaskCard({ item, done, onToggleDone, onEdit, onDelete, s
           {item.note && <p className="mt-1 text-xs italic text-ink-soft">{item.note}</p>}
           <PlannerAttachments attachments={item.attachments} />
           {(item.updatedByName || item.createdByName) && (
-            <p className="mt-1.5 text-[11px] text-ink-soft/70">{item.updatedByName ? `Updated by ${item.updatedByName}` : `Added by ${item.createdByName}`}</p>
+            <p className="mt-1.5 text-2xs text-ink-soft/70">{item.updatedByName ? `Updated by ${item.updatedByName}` : `Added by ${item.createdByName}`}</p>
           )}
         </div>
 
@@ -60,7 +61,7 @@ export default function TaskCard({ item, done, onToggleDone, onEdit, onDelete, s
           </button>
           {menuOpen && (
             <>
-              <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
+              <DismissLayer onDismiss={() => setMenuOpen(false)} />
               <div className="absolute right-0 top-8 z-20 w-40 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
                 {onToggleImportant && (
                   <button onClick={() => { setMenuOpen(false); onToggleImportant(); }} className="flex w-full items-center gap-2 px-3 py-2.5 text-sm text-ink hover:bg-surface-alt">

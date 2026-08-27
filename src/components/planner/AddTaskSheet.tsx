@@ -220,6 +220,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
           </div>
           {subject === '__custom' && (
             <input
+              aria-label="Custom subject name"
               value={customSubject}
               onChange={(e) => setCustomSubject(e.target.value)}
               placeholder="Subject name"
@@ -249,6 +250,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Description</label>
           <input
+              aria-label="Description"
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -262,6 +264,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-ink">Portion / Syllabus</label>
             <input
+              aria-label="Portion / Syllabus"
               value={portion}
               onChange={(e) => setPortion(e.target.value)}
               placeholder="e.g. Chapters 3–4"
@@ -287,6 +290,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Details (optional)</label>
           <textarea
+              aria-label="Details (optional)"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={2}
@@ -299,6 +303,7 @@ export default function AddTaskSheet({ open, onClose, dateKey, editingItem }: Ad
           <div>
             <label className="mb-1.5 block text-sm font-semibold text-ink">Shared note (optional)</label>
             <input
+              aria-label="Shared note (optional)"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               placeholder="e.g. Bring cardboard + colours"

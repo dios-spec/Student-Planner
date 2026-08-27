@@ -20,6 +20,11 @@ interface CommentsSheetProps {
 export default function CommentsSheet({ postId, onClose, onOpenProfile }: CommentsSheetProps) {
   const { user, profile } = useAuth();
   const [comments, setComments] = useState<Comment[] | null>(null);
+  // The comments listener is now a bounded window over the NEWEST comments
+  // rather than an unbounded stream of the whole thread. The window grows on
+  // demand so older comments stay reachable.
+  const COMMENT_PAGE = 100;
+  const [maxComments, setMaxComments] = useState(COMMENT_PAGE);
   const [text, setText] = useState('');
   const [warning, setWarning] = useState<string | null>(null);
   const profiles = useLiveProfiles((comments || []).map((comment) => comment.authorId));
@@ -29,7 +34,12 @@ export default function CommentsSheet({ postId, onClose, onOpenProfile }: Commen
       setComments(null);
       return;
     }
-    return watchComments(postId, setComments);
+    return watchComments(postId, setComments, maxComments);
+  }, [postId, maxComments]);
+
+  // Reset the window when the sheet moves to a different post.
+  useEffect(() => {
+    setMaxComments(COMMENT_PAGE);
   }, [postId]);
 
   async function handleSend() {
@@ -60,6 +70,17 @@ export default function CommentsSheet({ postId, onClose, onOpenProfile }: Commen
         <div className="flex-1 space-y-3 overflow-y-auto pb-3">
           {comments === null && <p className="py-6 text-center text-sm text-ink-soft">Loading…</p>}
           {comments?.length === 0 && <EmptyState emoji="💬" title="No comments yet" subtitle="Be the first!" />}
+          {comments && comments.length >= maxComments && (
+            <div className="flex justify-center pb-2">
+              <button
+                type="button"
+                onClick={() => setMaxComments((n) => n + COMMENT_PAGE)}
+                className="rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-semibold text-ink-soft"
+              >
+                Show earlier comments
+              </button>
+            </div>
+          )}
           {comments?.map((c) => {
             const created = c.createdAt?.toDate ? c.createdAt.toDate() : new Date();
             const authorName = liveName(profiles, c.authorId, c.authorName);
@@ -77,7 +98,7 @@ export default function CommentsSheet({ postId, onClose, onOpenProfile }: Commen
                     {c.text}
                   </p>
                   <div className="mt-0.5 flex flex-wrap items-center gap-2">
-                    <span className="text-[11px] text-ink-soft">{relativeTime(created)}</span>
+                    <span className="text-2xs text-ink-soft">{relativeTime(created)}</span>
                     <StudentMeritPill uid={c.authorId} size="micro" />
                   </div>
                 </div>

@@ -72,7 +72,15 @@ export function watchRecentMessages(cb: (msgs: ChatMessage[]) => void) {
   return onSnapshot(q, (snap) => {
     const msgs = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMessage).reverse();
     cb(msgs);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[CHAT] watchRecentMessages failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function loadOlderMessages(beforeCreatedAt: unknown): Promise<ChatMessage[]> {

@@ -4,46 +4,63 @@ Stage 12 never puts the teacher password in client code. The app sends it over H
 `/api/verify-teacher`; the server verifies the signed Firebase ID token, compares a SHA-256
 password hash in constant time, rate-limits failures, and writes the `role: teacher` custom claim.
 
-## 1. Create the password hash
+## 1. Create the password verifier
 
-Choose a new, unique teacher password (preferably 16+ random characters). Do not put the password
-or its hash in a `VITE_*` variable, source file, screenshot, or chat message.
+Choose a new, unique teacher password (16+ random characters). Do not put the password
+or its verifier in a `VITE_*` variable, source file, screenshot, or chat message.
 
-Run this in PowerShell. It hides the password while you type and prints only its SHA-256 hash:
+From the project folder:
 
-```powershell
-$secure = Read-Host "Teacher password" -AsSecureString
-$ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($secure)
-try {
-  $plain = [Runtime.InteropServices.Marshal]::PtrToStringBSTR($ptr)
-  $sha = [Security.Cryptography.SHA256]::Create()
-  try {
-    $bytes = [Text.Encoding]::UTF8.GetBytes($plain)
-    $hash = ([BitConverter]::ToString($sha.ComputeHash($bytes))).Replace('-', '').ToLowerInvariant()
-  } finally {
-    $sha.Dispose()
-  }
-} finally {
-  [Runtime.InteropServices.Marshal]::ZeroFreeBSTR($ptr)
-}
-$hash
 ```
+npm run teacher:hash
+```
+
+It prompts for the password with the input hidden, never writes it to disk, argv or any
+log, and prints only a verifier that looks like:
+
+```
+scrypt$N=16384,r=8,p=1$<salt>$<hash>
+```
+
+### Why this replaced the old SHA-256 value
+
+The previous setup stored a bare, unsalted SHA-256 of the password. SHA-256 is a fast
+hash, so a human-chosen password is recoverable from that digest offline in seconds with
+commodity hardware, and the digest sits in an environment variable readable by anyone
+with dashboard access or a logged environment dump. Recovering it grants the
+`role: teacher` custom claim. The server-side rate limit (5 attempts per user, 25 per IP)
+only ever protected the online guessing path.
+
+scrypt is salted and deliberately slow and memory-hard, so the verifier is not a
+practical target for offline cracking, and two deployments using the same password no
+longer share a digest.
 
 ## 2. Add the server environment variable
 
-In Vercel, open **Project → Settings → Environment Variables** and add:
+In Vercel, open **Project -> Settings -> Environment Variables** and add:
 
-- Name: `TEACHER_VERIFICATION_PASSWORD_SHA256`
-- Value: the 64-character hash printed above
+- Name: `TEACHER_VERIFICATION_PASSWORD_HASH`
+- Value: the `scrypt$...` verifier printed above
 - Environments: Production, plus Preview if you test preview deployments
 
-The existing server endpoints and this endpoint also require the existing Firebase Admin values:
+The existing server endpoints also require the existing Firebase Admin values:
 
 - `FIREBASE_ADMIN_PROJECT_ID`
 - `FIREBASE_ADMIN_CLIENT_EMAIL`
 - `FIREBASE_ADMIN_PRIVATE_KEY`
 
-Never prefix any of these four values with `VITE_`. Redeploy after saving them.
+Never prefix any of these values with `VITE_`. Redeploy after saving them.
+
+### Migrating from the old variable
+
+The old `TEACHER_VERIFICATION_PASSWORD_SHA256` is still accepted, so deploying this code
+before you rotate cannot lock teachers out. While it is in use the server logs a warning
+once per instance. **Delete `TEACHER_VERIFICATION_PASSWORD_SHA256` once
+`TEACHER_VERIFICATION_PASSWORD_HASH` is set and deployed** -- if both are present the new
+one wins, but leaving the weak digest in the environment defeats the point of rotating.
+
+Rotating changes future verification only. Teachers who are already verified keep their
+role, because the role lives in a Firebase custom claim, not in the password.
 
 ## 3. Deploy the security rules before the new app
 

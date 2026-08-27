@@ -232,6 +232,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
           <div className="flex min-w-0 flex-1 items-center gap-2 rounded-xl border border-line bg-paper px-3 py-2.5 focus-within:border-accent">
             <Search size={17} className="shrink-0 text-ink-soft" />
             <input
+              aria-label="Search Buddy Planner"
               ref={inputRef}
               value={query}
               onChange={(event) => setQuery(event.target.value)}
@@ -316,7 +317,7 @@ export default function SearchOverlay({ open, onClose }: { open: boolean; onClos
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-ink">{result.title}</span>
                       <span className="mt-0.5 block truncate text-xs text-ink-soft">{result.subtitle}</span>
-                      <span className="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-accent">
+                      <span className="mt-1 flex items-center gap-1.5 text-2xs font-medium text-accent">
                         {result.meta}
                         {!!result.attachmentCount && <><Paperclip size={11} /> {result.attachmentCount}</>}
                       </span>

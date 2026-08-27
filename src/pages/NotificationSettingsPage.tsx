@@ -1,5 +1,7 @@
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, Bell, BellOff, Check } from 'lucide-react';
+import { readPermission, type PermissionState } from '../utils/notificationPermission';
 import { useAuth } from '../context/AuthContext';
 import { updateNotificationSettings } from '../firebase/users';
 import type { NotificationSettings, QuietHours } from '../types';
@@ -58,6 +60,130 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   );
 }
 
+/**
+ * Device-level permission state and, when it is blocked, the only route back.
+ *
+ * Chrome owns this permission: once it is denied, requestPermission() silently
+ * resolves 'denied' without showing anything, so a button here would be a lie.
+ * The honest thing is to say what happened and where the real switch lives.
+ */
+function DevicePermission({ uid }: { uid: string | undefined }) {
+  const [permission, setPermission] = useState<PermissionState>('default');
+  const [working, setWorking] = useState(false);
+
+  useEffect(() => {
+    setPermission(readPermission());
+    // Permission can be changed from browser UI while the app is open.
+    const onFocus = () => setPermission(readPermission());
+    window.addEventListener('focus', onFocus);
+    return () => window.removeEventListener('focus', onFocus);
+  }, []);
+
+  async function turnOn() {
+    if (working || !uid) return;
+    setWorking(true);
+    try {
+      const next = await Notification.requestPermission();
+      setPermission(next === 'granted' ? 'granted' : next === 'denied' ? 'denied' : 'default');
+      if (next === 'granted') {
+        const { initPush } = await import('../firebase/push');
+        await initPush(uid);
+      }
+    } catch {
+      setPermission(readPermission());
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <div>
+      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">This device</p>
+      <div className="rounded-2xl border border-line bg-surface p-4">
+        {permission === 'granted' && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-success-soft text-success">
+              <Check size={16} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">Notifications are on</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-soft">
+                Buddy Planner can reach this device even when it is closed. The switches below
+                decide what is worth sending.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {permission === 'default' && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-accent">
+              <Bell size={16} aria-hidden="true" />
+            </span>
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-semibold text-ink">Notifications are off</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-soft">
+                Without them you only see homework, replies and calls when the app is open.
+              </p>
+              <button
+                type="button"
+                onClick={turnOn}
+                disabled={working}
+                className="mt-2.5 min-h-10 rounded-full bg-accent px-4 text-xs font-semibold text-white disabled:opacity-60"
+              >
+                {working ? 'Just a moment…' : 'Turn on notifications'}
+              </button>
+            </div>
+          </div>
+        )}
+
+        {permission === 'denied' && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-coral-soft text-coral">
+              <BellOff size={16} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">Blocked by your browser</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-soft">
+                Buddy Planner cannot ask again from here — the browser remembers the block.
+                To undo it:
+              </p>
+              <ul className="mt-2 space-y-1 text-xs leading-5 text-ink-soft">
+                <li>
+                  <span className="font-semibold text-ink">Installed app:</span> press and hold the
+                  Buddy Planner icon, open App info, then Notifications, and allow them.
+                </li>
+                <li>
+                  <span className="font-semibold text-ink">Chrome tab:</span> tap the icon to the
+                  left of the address bar, open Permissions, then allow Notifications.
+                </li>
+              </ul>
+              <p className="mt-2 text-xs leading-5 text-ink-soft">
+                Come back to this screen afterwards and it will say Notifications are on.
+              </p>
+            </div>
+          </div>
+        )}
+
+        {permission === 'unsupported' && (
+          <div className="flex items-start gap-3">
+            <span className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-surface-alt text-ink-soft">
+              <BellOff size={16} aria-hidden="true" />
+            </span>
+            <div>
+              <p className="text-sm font-semibold text-ink">Not supported here</p>
+              <p className="mt-0.5 text-xs leading-5 text-ink-soft">
+                This browser cannot show notifications. Buddy Planner still records everything in
+                the Notification Centre.
+              </p>
+            </div>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function NotificationSettingsPage() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
@@ -77,7 +203,7 @@ export default function NotificationSettingsPage() {
   if (!profile) return null;
 
   return (
-    <div className="pb-8">
+    <div className="pb-24">
       <header className="sticky top-0 z-30 flex items-center gap-2 border-b border-line bg-paper/95 px-2 py-3 pt-[env(safe-area-inset-top)] backdrop-blur">
         <button onClick={() => navigate(-1)} aria-label="Back" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
           <ArrowLeft size={20} />
@@ -86,6 +212,8 @@ export default function NotificationSettingsPage() {
       </header>
 
       <div className="space-y-5 px-4 pt-4">
+        <DevicePermission uid={user?.uid} />
+
         {SECTIONS.map((section) => (
           <div key={section.title}>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-soft">{section.title}</p>
@@ -130,6 +258,7 @@ export default function NotificationSettingsPage() {
                   <div className="flex-1">
                     <label className="mb-1 block text-xs text-ink-soft">From</label>
                     <input
+              aria-label="From"
                       type="time"
                       value={quiet.start}
                       onChange={(e) => setQuiet({ start: e.target.value })}
@@ -139,6 +268,7 @@ export default function NotificationSettingsPage() {
                   <div className="flex-1">
                     <label className="mb-1 block text-xs text-ink-soft">To</label>
                     <input
+              aria-label="To"
                       type="time"
                       value={quiet.end}
                       onChange={(e) => setQuiet({ end: e.target.value })}

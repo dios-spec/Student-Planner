@@ -17,11 +17,15 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
   const [forDate, setForDate] = useState('');
   const [saving, setSaving] = useState(false);
 
-  if (!isTeacher) return null;
-
+  // Hooks must run on every render path, so this effect stays ABOVE the
+  // isTeacher early return. Calling it conditionally crashed React with
+  // "Rendered more hooks than during the previous render" the moment the
+  // teacher claim resolved and isTeacher flipped false -> true.
   useEffect(() => {
     if (open) setTargetClass(activeClass);
   }, [open, activeClass]);
+
+  if (!isTeacher) return null;
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -64,6 +68,7 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Title</label>
           <input
+              aria-label="Title"
             required
             value={title}
             onChange={(e) => setTitle(e.target.value)}
@@ -76,6 +81,7 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Details (optional)</label>
           <textarea
+              aria-label="Details (optional)"
             value={body}
             onChange={(e) => setBody(e.target.value.slice(0, 400))}
             rows={2}
@@ -86,6 +92,7 @@ export default function AnnouncementComposer({ open, onClose }: { open: boolean;
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">For date (optional)</label>
           <input
+              aria-label="For date (optional)"
             type="date"
             value={forDate}
             onChange={(e) => setForDate(e.target.value)}

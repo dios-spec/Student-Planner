@@ -68,7 +68,7 @@ export default function NotificationsPage() {
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold text-ink">{title}</p>
                     {n.body && <p className="truncate text-xs text-ink-soft">{n.body}</p>}
-                    <p className="text-[11px] text-ink-soft">
+                    <p className="text-2xs text-ink-soft">
                       {n.createdAt?.toDate ? relativeTime(n.createdAt.toDate()) : ''}
                     </p>
                   </div>

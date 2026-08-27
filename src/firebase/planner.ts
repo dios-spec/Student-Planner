@@ -139,33 +139,107 @@ export function watchPlannerItemsForDate(
   );
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as PlannerItem));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[PLANNER] watchPlannerItems failed:', err);
+      cb([]);
+    }
+  );
 }
 
-/** Live listener for a date range. Tests/projects are placed by due date when present. */
+/**
+ * Live listener for a date range. Tests/projects are placed by due date when present.
+ *
+ * History: this query originally had NO date bounds at all -- `orderBy(date asc)
+ * limit(500)` returns the OLDEST 500 items, so once a class passed 500 planner
+ * items the window no longer contained today and Upcoming, exam countdowns and
+ * the dashboard all went silently empty. Phase 1 bounded it with a 180-day
+ * lookback, which fixed that but was a heuristic: an item created more than 180
+ * days before its due date still vanished.
+ *
+ * It is now exact, with no lookback constant. Two bounded listeners are merged:
+ *   A. items whose `date` falls in the range  -- covers items with no dueDate
+ *   B. items whose `dueDate` falls in the range -- covers everything else
+ * The existing effectiveDate filter then decides membership, so an item that
+ * matches A but whose dueDate moved it out of the window is still excluded.
+ *
+ * Requires the composite index (classId, deleted, dueDate) -- added to
+ * firestore.indexes.json alongside the existing (classId, deleted, date).
+ */
 export function watchPlannerItemsInRange(
   classId: string,
   startKey: string,
   endKey: string,
   cb: (items: PlannerItem[]) => void
 ) {
-  const q = query(
+  const base = [where('classId', '==', classId), where('deleted', '==', false)] as const;
+
+  const byDate = query(
     itemsCol,
-    where('classId', '==', classId),
-    where('deleted', '==', false),
+    ...base,
+    where('date', '>=', startKey),
+    where('date', '<=', endKey),
     orderBy('date', 'asc'),
     limit(500)
   );
-  return onSnapshot(q, (snap) => {
-    const items = snap.docs
-      .map((d) => ({ id: d.id, ...d.data() }) as PlannerItem)
-      .filter((item) => {
-        const effectiveDate = item.dueDate || item.date;
-        return effectiveDate >= startKey && effectiveDate <= endKey;
-      })
-      .sort((a, b) => (a.dueDate || a.date).localeCompare(b.dueDate || b.date));
-    cb(items);
-  });
+
+  const byDueDate = query(
+    itemsCol,
+    ...base,
+    where('dueDate', '>=', startKey),
+    where('dueDate', '<=', endKey),
+    orderBy('dueDate', 'asc'),
+    limit(500)
+  );
+
+  let fromDate: PlannerItem[] | null = null;
+  let fromDueDate: PlannerItem[] | null = null;
+
+  const emit = () => {
+    // Wait for both listeners before the first emission, otherwise the UI
+    // flickers through a half-populated list.
+    if (fromDate === null || fromDueDate === null) return;
+
+    const byId = new Map<string, PlannerItem>();
+    for (const item of [...fromDate, ...fromDueDate]) byId.set(item.id, item);
+
+    cb(
+      [...byId.values()]
+        .filter((item) => {
+          const effectiveDate = item.dueDate || item.date;
+          return effectiveDate >= startKey && effectiveDate <= endKey;
+        })
+        .sort((a, b) => (a.dueDate || a.date).localeCompare(b.dueDate || b.date))
+    );
+  };
+
+  const toItems = (snap: { docs: { id: string; data: () => unknown }[] }) =>
+    snap.docs.map((d) => ({ id: d.id, ...(d.data() as object) }) as PlannerItem);
+
+  const unsubA = onSnapshot(
+    byDate,
+    (snap) => { fromDate = toItems(snap); emit(); },
+    (err) => {
+      console.error('[PLANNER] watchPlannerItemsInRange (date) failed:', err);
+      fromDate = []; emit();
+    }
+  );
+
+  const unsubB = onSnapshot(
+    byDueDate,
+    (snap) => { fromDueDate = toItems(snap); emit(); },
+    (err) => {
+      // A missing composite index shows up here. Degrade to the date-only
+      // result rather than emptying the planner.
+      console.error('[PLANNER] watchPlannerItemsInRange (dueDate) failed:', err);
+      fromDueDate = []; emit();
+    }
+  );
+
+  return () => { unsubA(); unsubB(); };
 }
 
 /** Per-user completion is its own tiny doc so "done" never overwrites the shared task. */
@@ -178,7 +252,15 @@ export function watchMyCompletions(userId: string, cb: (map: Record<string, bool
       map[data.itemId] = data.done;
     });
     cb(map);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[PLANNER] watchMyCompletions failed:', err);
+      cb({});
+    }
+  );
 }
 
 /** One-off fetch used by the search overlay (small class-sized dataset, so a client-side filter is fine). */

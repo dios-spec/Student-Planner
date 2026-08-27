@@ -33,7 +33,7 @@ export default function PlannerAttachments({ attachments, compact = false }: Pla
           </button>
         ))}
         {!compact && (
-          <span className="flex items-center gap-1 self-end pb-1 text-[11px] text-ink-soft">
+          <span className="flex items-center gap-1 self-end pb-1 text-2xs text-ink-soft">
             <ImageIcon size={12} /> {attachments.length}
           </span>
         )}

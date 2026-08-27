@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import Modal from '../shared/Modal';
 import { ArrowLeft, UserPlus, LogOut, Shield, ShieldOff, UserMinus, Pencil, Check } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import ConfirmDialog from '../shared/ConfirmDialog';
@@ -26,7 +27,7 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
   const [editingName, setEditingName] = useState(false);
   const [nameDraft, setNameDraft] = useState(conversation.name || '');
   const [addOpen, setAddOpen] = useState(false);
-  const [confirm, setConfirm] = useState<null | { title: string; message: string; danger?: boolean; action: () => void }>(null);
+  const [confirm, setConfirm] = useState<null | { title: string; message: string; danger?: boolean; action: () => void | Promise<void> }>(null);
 
   const people = Object.values(liveProfileMap).filter(
     (p) => p.id !== user?.uid && p.onboarded && !conversation.memberIds.includes(p.id)
@@ -85,9 +86,15 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
           <Avatar name={conversation.name || 'Group'} src={conversation.photoUrl} size="lg" />
           {editingName && isAdmin ? (
             <div className="flex items-center gap-2">
-              <input value={nameDraft} onChange={(e) => setNameDraft(e.target.value.slice(0, 40))}
+              <input aria-label="Group name" value={nameDraft} onChange={(e) => setNameDraft(e.target.value.slice(0, 40))}
                 className="rounded-xl border border-line bg-surface px-3 py-1.5 text-center text-lg font-semibold outline-none focus:border-accent" />
-              <button onClick={saveName} className="rounded-full bg-accent p-1.5 text-white"><Check size={16} /></button>
+              <button
+                onClick={saveName}
+                aria-label="Save group name"
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-accent text-white"
+              >
+                <Check size={16} aria-hidden="true" />
+              </button>
             </div>
           ) : (
             <div className="flex items-center gap-2">
@@ -149,13 +156,17 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
         </div>
       </div>
 
-      {/* add members sheet */}
-      {addOpen && (
-        <div className="fixed inset-0 z-[60] flex items-end bg-black/40" onClick={() => setAddOpen(false)}>
-          <div className="max-h-[70vh] w-full overflow-y-auto rounded-t-3xl bg-surface p-4" onClick={(e) => e.stopPropagation()}>
-            <p className="mb-3 font-display text-lg font-semibold">Add members</p>
-            {people.length === 0 && <p className="py-4 text-center text-sm text-ink-soft">Everyone's already in.</p>}
-            {people.map((p) => (
+      {/* Add members. This was a hand-rolled sheet -- raw divs with a click
+          backdrop, no role, no focus trap, no Escape, no body scroll lock, and
+          its own max-height and radius that did not match any other sheet in
+          the app. Using the shared Modal fixes all of that in one move and
+          keeps overlays visually consistent. */}
+      <Modal open={addOpen} onClose={() => setAddOpen(false)} title="Add members">
+        <div className="space-y-1">
+          {people.length === 0 && (
+            <p className="py-4 text-center text-sm text-ink-soft">Everyone's already in.</p>
+          )}
+          {people.map((p) => (
               <button key={p.id}
                 onClick={async () => {
                   try {
@@ -171,12 +182,11 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
                   <span className="block truncate text-sm">{p.displayName}</span>
                   <StudentMeritPill uid={p.id} size="micro" />
                 </span>
-                <UserPlus size={16} className="text-accent" />
+                <UserPlus size={16} className="text-accent" aria-hidden="true" />
               </button>
-            ))}
-          </div>
+          ))}
         </div>
-      )}
+      </Modal>
 
       <ConfirmDialog
         open={!!confirm}
@@ -184,7 +194,21 @@ export default function GroupInfo({ conversation, onBack, onLeft, onOpenProfile 
         message={confirm?.message || ''}
         danger={confirm?.danger}
         confirmLabel="Confirm"
-        onConfirm={() => { confirm?.action(); setConfirm(null); }}
+        onConfirm={async () => {
+          const pending = confirm;
+          setConfirm(null);
+          if (!pending) return;
+          try {
+            // These actions are async and were previously fired un-awaited, so
+            // every rejection vanished as an unhandled promise. conversations.ts
+            // deliberately throws "A group must keep at least one admin." and
+            // the rules reject removing a member from a 2-person group -- the
+            // dialog just closed and the user was left thinking it worked.
+            await pending.action();
+          } catch (err) {
+            show(err instanceof Error ? err.message : "That change could not be saved.");
+          }
+        }}
         onCancel={() => setConfirm(null)}
       />
     </div>
@@ -216,7 +240,7 @@ function MemberRow({
         <StudentMeritPill uid={id} size="micro" />
       </div>
       {isAdminBadge && (
-        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-[10px] font-bold text-accent">Admin</span>
+        <span className="rounded-full bg-accent-soft px-2 py-0.5 text-3xs font-bold text-accent">Admin</span>
       )}
       {canManage && (
         <div className="flex items-center gap-1">

@@ -18,17 +18,24 @@ import { CLASS_COLORS, isClassId } from '../data/classes';
 import RoleBadge from '../components/profile/RoleBadge';
 import AccountTypeBadge from '../components/profile/AccountTypeBadge';
 import TeacherVerificationModal from '../components/profile/TeacherVerificationModal';
+import DeleteAccountDialog from '../components/profile/DeleteAccountDialog';
 import MeritSummaryCard from '../components/merit/MeritSummaryCard';
 
 export default function ProfilePage() {
   const navigate = useNavigate();
   const { user, profile, isTeacher, claimsLoading, accountType } = useAuth();
-  const { posts } = useUserPosts(user?.uid);
+  // Growable window: the underlying listener is bounded so a prolific author
+  // does not stream their whole history, but "Show more" keeps every post
+  // reachable rather than silently truncating the grid.
+  const POST_PAGE = 60;
+  const [maxPosts, setMaxPosts] = useState(POST_PAGE);
+  const { posts } = useUserPosts(user?.uid, maxPosts);
   const [editOpen, setEditOpen] = useState(false);
   const [announceOpen, setAnnounceOpen] = useState(false);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [moodOpen, setMoodOpen] = useState(false);
   const [teacherVerifyOpen, setTeacherVerifyOpen] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
 
   if (!profile) return null;
 
@@ -140,12 +147,23 @@ export default function ProfilePage() {
                   onClick={() => setPreviewUrl(post.imageUrl)}
                   className="aspect-square overflow-hidden rounded-md bg-surface-alt"
                 >
-                  <img src={post.imageUrl} alt={post.caption || 'Post'} className="h-full w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.caption || 'Post'} className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
           ) : (
             <EmptyState emoji="📷" title="No posts yet" subtitle="Share a photo from the Home tab." />
+          )}
+          {posts && posts.length >= maxPosts && (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setMaxPosts((n) => n + POST_PAGE)}
+                className="rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-semibold text-ink-soft"
+              >
+                Show more posts
+              </button>
+            </div>
           )}
         </div>
 
@@ -176,6 +194,17 @@ export default function ProfilePage() {
           </div>
         </button>
 
+        <button
+          onClick={() => navigate('/privacy')}
+          className="flex w-full items-center gap-3 rounded-2xl border border-line bg-surface p-4 text-left"
+        >
+          <ShieldCheck size={18} className="text-accent" />
+          <div>
+            <p className="text-sm font-semibold text-ink">Privacy</p>
+            <p className="text-xs text-ink-soft">What Buddy Planner stores, and who can see it</p>
+          </div>
+        </button>
+
         {isTeacher && (
 
           <button
@@ -192,6 +221,20 @@ export default function ProfilePage() {
         )}
 
         <MyNotes />
+
+        <div className="mt-2 rounded-2xl border border-coral/25 bg-coral-soft/40 p-4">
+          <p className="text-sm font-semibold text-ink">Delete account</p>
+          <p className="mt-0.5 text-xs leading-5 text-ink-soft">
+            Permanently removes your profile and personal data from Buddy Planner. This cannot be undone.
+          </p>
+          <button
+            type="button"
+            onClick={() => setDeleteOpen(true)}
+            className="mt-3 min-h-11 rounded-full border border-coral px-4 text-sm font-semibold text-coral"
+          >
+            Delete my account
+          </button>
+        </div>
 
         <div className="flex items-start gap-2 rounded-2xl bg-surface-alt p-3.5 text-xs text-ink-soft">
           <Info size={14} className="mt-0.5 shrink-0" />
@@ -224,6 +267,7 @@ export default function ProfilePage() {
       <ImagePreviewModal url={previewUrl} onClose={() => setPreviewUrl(null)} />
       <MoodPicker open={moodOpen} onClose={() => setMoodOpen(false)} />
       <TeacherVerificationModal open={teacherVerifyOpen} onClose={() => setTeacherVerifyOpen(false)} />
+      <DeleteAccountDialog open={deleteOpen} onClose={() => setDeleteOpen(false)} />
     </div>
   );
 }

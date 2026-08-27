@@ -83,6 +83,7 @@ export default function CreateGroup({
           <input ref={fileRef} type="file" accept="image/*" className="hidden"
             onChange={(e) => { const f = e.target.files?.[0]; if (f) handlePhoto(f); e.target.value = ''; }} />
           <input
+            aria-label="Group name"
             value={name}
             onChange={(e) => setName(e.target.value.slice(0, 40))}
             placeholder="Group name"
@@ -91,6 +92,7 @@ export default function CreateGroup({
         </div>
 
         <input
+          aria-label="Group description"
           value={desc}
           onChange={(e) => setDesc(e.target.value.slice(0, 120))}
           placeholder="Description (optional)"

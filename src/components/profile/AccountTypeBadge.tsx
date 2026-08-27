@@ -39,7 +39,7 @@ export default function AccountTypeBadge({
 
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] font-semibold ${
+      className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-2xs font-semibold ${
         secured
           ? 'border-success/30 bg-success-soft text-success'
           : 'border-line bg-surface-alt text-ink-soft'

@@ -8,7 +8,15 @@ export function watchTimetable(classId: string, cb: (t: Timetable | null) => voi
   return onSnapshot(doc(db, 'timetable', classId), (snap) => {
     if (!snap.exists()) { cb(null); return; }
     cb({ classId, ...snap.data() } as Timetable);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[TIMETABLE] watchTimetable failed:', err);
+      cb(null);
+    }
+  );
 }
 
 export async function saveTimetable(classId: string, days: Timetable['days'], uid: string) {

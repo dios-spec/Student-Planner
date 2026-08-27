@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { ArrowLeft, Phone, Image as ImageIcon } from 'lucide-react';
 import Avatar from '../shared/Avatar';
 import DMBubble from './DMBubble';
@@ -7,11 +7,12 @@ import ImagePreviewModal from '../chat/ImagePreviewModal';
 import { PlannerSkeleton } from '../shared/Skeleton';
 import EmptyState from '../shared/EmptyState';
 import { useDMMessages } from '../../hooks/useDMMessages';
+import { useTranscript } from '../../hooks/useTranscript';
 import { useAuth } from '../../context/AuthContext';
 import { useToast } from '../../context/ToastContext';
 import { useCall } from '../../context/CallContext';
 import { useActiveConversation } from '../../context/ActiveConversationContext';
-import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll, editDMMessage } from '../../firebase/dm';
+import { sendDM, toggleDMReaction, deleteDMMessage, voteOnDMPoll, closeDMPoll, editDMMessage, loadOlderDMMessages } from '../../firebase/dm';
 import { sfxSend, sfxPop, sfxSelect, sfxError } from '../../utils/sfx';
 import { useSavedItems } from '../../hooks/useSavedItems';
 import { saveItem, unsaveItem } from '../../firebase/saved';
@@ -28,6 +29,7 @@ import PresenceLabel from '../shared/PresenceLabel';
 import CreatePollSheet from '../chat/CreatePollSheet';
 import MediaBrowser from './MediaBrowser';
 import type { Conversation, DMMessage, StudentProfile } from '../../types';
+import type { InteractionState } from '../../utils/blockPolicy';
 import StudentMeritPill from '../merit/StudentMeritPill';
 
 interface ConversationScreenProps {
@@ -36,17 +38,49 @@ interface ConversationScreenProps {
   onOpenProfile: (uid: string) => void;
   onOpenGroupInfo: (conv: Conversation) => void;
   onOpenShared: (shared: NonNullable<DMMessage['shared']>) => void;
-  blocked?: boolean;
+  /** 'loading' until the block lists have arrived; see utils/blockPolicy. */
+  interaction?: InteractionState;
 }
 
 export default function ConversationScreen({
-  conversation, onBack, onOpenProfile, onOpenGroupInfo, onOpenShared, blocked,
+  conversation, onBack, onOpenProfile, onOpenGroupInfo, onOpenShared, interaction = 'open',
 }: ConversationScreenProps) {
   const { user, profile } = useAuth();
   const { show } = useToast();
   const { startCall } = useCall();
   const { setActiveConversationId } = useActiveConversation();
-  const { messages, loading } = useDMMessages(conversation.id);
+  const { messages: liveMessages, loading } = useDMMessages(conversation.id);
+
+  // watchDMMessages only ever returns the newest 40. useTranscript accumulates
+  // everything seen so history does not fall into the gap between the sliding
+  // live window and the once-anchored older pages. MessagesPage keys this
+  // component by conversation id, so switching threads remounts it clean.
+  const { items: transcript, prependOlder } = useTranscript<DMMessage>(liveMessages);
+  const [loadingOlder, setLoadingOlder] = useState(false);
+  const [noMoreOlder, setNoMoreOlder] = useState(false);
+
+  const messages = liveMessages === null && transcript.length === 0 ? null : transcript;
+
+  async function handleLoadOlder() {
+    const oldest = messages && messages[0];
+    if (!oldest?.createdAt || loadingOlder || noMoreOlder) return;
+    setLoadingOlder(true);
+    try {
+      const page = await loadOlderDMMessages(conversation.id, oldest.createdAt);
+      if (!page.length) {
+        setNoMoreOlder(true);
+      } else {
+        const el = messageListRef.current;
+        if (el) pendingScrollRef.current = { height: el.scrollHeight, top: el.scrollTop };
+        prependOlder(page);
+      }
+    } catch {
+      show("Couldn't load older messages.");
+    } finally {
+      setLoadingOlder(false);
+    }
+  }
+
   const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
   const { isSaved } = useSavedItems(user?.uid);
   const typingNames = typingNamesFrom(conversation.typing, user?.uid || '');
@@ -64,6 +98,17 @@ export default function ConversationScreen({
   const [pollOpen, setPollOpen] = useState(false);
   const [mediaOpen, setMediaOpen] = useState(false);
   const messageListRef = useRef<HTMLDivElement>(null);
+  const pendingScrollRef = useRef<{ height: number; top: number } | null>(null);
+
+  // Prepending an older page grows the list upward; without this the viewport
+  // would appear to jump. Restore the reading position by the height delta.
+  useLayoutEffect(() => {
+    const el = messageListRef.current;
+    const pending = pendingScrollRef.current;
+    if (!el || !pending) return;
+    pendingScrollRef.current = null;
+    el.scrollTop = el.scrollHeight - pending.height + pending.top;
+  }, [transcript.length]);
 
   const isGroup = conversation.type === 'group';
   const otherId = isGroup ? '' : conversation.memberIds.find((m) => m !== user?.uid) || '';
@@ -127,7 +172,7 @@ export default function ConversationScreen({
       window.clearTimeout(timer1);
       window.clearTimeout(timer2);
     };
-  }, [loading, messages?.length]);
+  }, [loading, newestMsgId]);
 
   if (!user || !profile) return null;
 
@@ -228,7 +273,7 @@ export default function ConversationScreen({
         <button onClick={() => setMediaOpen(true)} aria-label="Media, links and shared" className="rounded-full p-2 text-ink-soft hover:bg-surface-alt">
           <ImageIcon size={20} />
         </button>
-        {!blocked && (
+        {interaction === 'open' && (
           <button
             onClick={async () => {
               if (!profile) return;
@@ -254,6 +299,18 @@ export default function ConversationScreen({
         {loading && <PlannerSkeleton />}
         {!loading && messages?.length === 0 && (
           <EmptyState emoji="👋" title="Say hi!" subtitle="This is the start of your conversation." />
+        )}
+        {!loading && !noMoreOlder && !!messages?.length && (
+          <div className="flex justify-center pb-1">
+            <button
+              type="button"
+              onClick={handleLoadOlder}
+              disabled={loadingOlder}
+              className="rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-semibold text-ink-soft disabled:opacity-50"
+            >
+              {loadingOlder ? 'Loading…' : 'Load earlier messages'}
+            </button>
+          </div>
         )}
         {messages?.map((m) => (
           <DMBubble
@@ -289,9 +346,20 @@ export default function ConversationScreen({
 
       <TypingIndicator names={typingNames} />
 
-      {blocked ? (
+      {interaction === 'blocked' ? (
         <div className="border-t border-line bg-surface px-4 py-4 text-center text-sm text-ink-soft">
           You can't message this person.
+        </div>
+      ) : interaction === 'loading' ? (
+        // Neutral, not accusatory: we do not yet know whether a block exists.
+        // The composer stays closed so a blocked message cannot be sent in the
+        // window before the block snapshots arrive.
+        <div
+          className="border-t border-line bg-surface px-4 py-4 text-center text-sm text-ink-soft"
+          role="status"
+          aria-live="polite"
+        >
+          Opening conversation...
         </div>
       ) : (
         <DMInput

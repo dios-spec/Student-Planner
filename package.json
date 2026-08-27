@@ -8,6 +8,10 @@
     "build": "tsc -b && vite build",
     "lint": "oxlint src api",
     "test:teacher-security": "node --test api/_lib/teacherVerification.test.js",
+    "test:server": "node --test \"api/_lib/*.test.js\"",
+    "test:unit": "node --test \"src/**/*.test.ts\"",
+    "teacher:hash": "node scripts/hash-teacher-password.mjs",
+    "test": "npm run test:server && npm run test:unit",
     "preview": "vite preview"
   },
   "dependencies": {

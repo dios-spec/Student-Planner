@@ -69,7 +69,15 @@ export function watchRecentTeacherMessages(cb: (messages: ChatMessage[]) => void
   const q = query(teacherMessagesCol, orderBy('createdAt', 'desc'), limit(PAGE_SIZE));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as ChatMessage).reverse());
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[TEACHER_CHAT] watchRecentTeacherMessages failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function toggleTeacherReaction(

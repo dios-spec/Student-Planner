@@ -14,7 +14,6 @@ export default function LiveNotificationBanner() {
   const navigate = useNavigate();
   const seen = useRef<Set<string>>(new Set());
   const primed = useRef(false);
-  const timer = useRef<number | null>(null);
   const [current, setCurrent] = useState<AppNotification | null>(null);
 
   useEffect(() => {
@@ -40,14 +39,19 @@ export default function LiveNotificationBanner() {
     if (!next) return;
     setCurrent(next);
     void markNotificationRead(next.id); // seen it = read, don't show it again
-
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = window.setTimeout(() => setCurrent(null), 5000);
-
-    return () => {
-      if (timer.current) clearTimeout(timer.current);
-    };
   }, [notifications, loaded, activeConversationId]);
+
+  // The auto-dismiss timer lives in its OWN effect, keyed on the banner that is
+  // actually showing. It used to sit in the effect above, which self-destructed:
+  // markNotificationRead() flips read:true, the notifications snapshot re-fires,
+  // the effect re-runs, its cleanup clears the 5s timer -- and because `next` is
+  // now undefined the body returns early without ever scheduling a replacement.
+  // The banner then stayed pinned over the app until the user tapped X.
+  useEffect(() => {
+    if (!current) return;
+    const timer = window.setTimeout(() => setCurrent(null), 5000);
+    return () => window.clearTimeout(timer);
+  }, [current]);
 
   if (!current) return null;
 

@@ -15,6 +15,7 @@ import {
   increment,
   writeBatch,
   runTransaction,
+  startAfter,
 } from 'firebase/firestore';
 import { db } from './config';
 import type { DMMessage, Conversation } from '../types';
@@ -135,7 +136,37 @@ export function watchDMMessages(conversationId: string, cb: (msgs: DMMessage[]) 
   const q = query(msgCol(conversationId), orderBy('createdAt', 'desc'), limit(PAGE));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DMMessage).reverse());
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[DM] watchDMMessages failed:', err);
+      cb([]);
+    }
+  );
+}
+
+/**
+ * Older page of a conversation, before `beforeCreatedAt`.
+ *
+ * watchDMMessages is capped at the newest PAGE messages and there was no way to
+ * reach past it: scrolling up in any conversation longer than 40 messages just
+ * stopped, and the history was unreachable in the app. Class chat already had
+ * this (chat.ts loadOlderMessages); DMs and groups did not.
+ */
+export async function loadOlderDMMessages(
+  conversationId: string,
+  beforeCreatedAt: unknown
+): Promise<DMMessage[]> {
+  const q = query(
+    msgCol(conversationId),
+    orderBy('createdAt', 'desc'),
+    startAfter(beforeCreatedAt),
+    limit(PAGE)
+  );
+  const snap = await getDocs(q);
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }) as DMMessage).reverse();
 }
 
 export async function toggleDMReaction(

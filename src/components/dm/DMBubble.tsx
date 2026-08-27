@@ -73,9 +73,9 @@ export default function DMBubble({
           </div>
         )}
 
-        <div className={`relative rounded-2xl px-3 py-2 text-sm ${isMine ? 'rounded-tr-sm bg-accent text-white' : 'rounded-tl-sm bg-surface text-ink'} ${message.kind === 'voice' ? 'min-w-[180px]' : ''}`}>
+        <div className={`relative rounded-2xl px-3 py-2 text-sm ${isMine ? 'rounded-tr-sm bg-accent text-white' : 'rounded-tl-sm bg-surface text-ink'} ${message.kind === 'voice' ? 'min-w-[min(180px,100%)]' : ''}`}>
           {message.kind === 'image' && message.imageUrl && (
-            <img src={message.imageUrl} alt="Shared" onClick={() => onImageClick(message.imageUrl!)} className="mb-1 max-h-60 w-full cursor-pointer rounded-xl object-cover" />
+            <img loading="lazy" decoding="async" src={message.imageUrl} alt="Shared" onClick={() => onImageClick(message.imageUrl!)} className="mb-1 max-h-60 w-full cursor-pointer rounded-xl object-cover" />
           )}
           {message.kind === 'voice' && message.audioUrl && <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />}
           {(message.kind === 'sharedPost' || message.kind === 'sharedReel' || message.kind === 'sharedStory') && message.shared && (
@@ -110,8 +110,8 @@ export default function DMBubble({
         </div>
 
         <div className="mt-0.5 flex items-center gap-2 px-1">
-          <span className="text-[11px] text-ink-soft">{relativeTime(created)}{message.edited ? ' · edited' : ''}</span>
-          {receiptLabel && <span className="text-[11px] font-medium text-accent">{receiptLabel}</span>}
+          <span className="text-2xs text-ink-soft">{relativeTime(created)}{message.edited ? ' · edited' : ''}</span>
+          {receiptLabel && <span className="text-2xs font-medium text-accent">{receiptLabel}</span>}
           <button onClick={() => setPicker((o) => !o)} className="text-ink-soft hover:text-accent"><SmilePlus size={14} /></button>
           <button onClick={onReply} aria-label="Reply to message" className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
           <button onClick={onTogglePin} aria-label={pinned ? 'Unpin' : 'Pin'} className={pinned ? 'text-accent' : 'text-ink-soft hover:text-accent'}>

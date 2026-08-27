@@ -114,7 +114,7 @@ export default function AwardMeritModal({
               placeholder={kind === 'merit' ? 'e.g. Excellent class participation' : 'e.g. Repeatedly missing required work'}
               className="w-full resize-none rounded-xl border border-line bg-paper px-3 py-2.5 text-sm outline-none focus:border-accent"
             />
-            <p className="mt-1 text-right text-[11px] text-ink-soft">{reason.length}/160</p>
+            <p className="mt-1 text-right text-2xs text-ink-soft">{reason.length}/160</p>
           </div>
 
           <p className="rounded-xl bg-surface-alt p-3 text-xs text-ink-soft">

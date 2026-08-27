@@ -47,15 +47,36 @@ export function watchFeed(cb: (posts: Post[]) => void) {
   const q = query(postsCol, orderBy('createdAt', 'desc'), limit(60));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[POSTS] watchFeed failed:', err);
+      cb([]);
+    }
+  );
 }
 
 /** All posts by one author (used on their profile). */
-export function watchPostsByUser(uid: string, cb: (posts: Post[]) => void) {
-  const q = query(postsCol, where('authorId', '==', uid), orderBy('createdAt', 'desc'));
+/** Author's posts, newest first.
+ *  Previously unbounded: a prolific author streamed their entire history to
+ *  every visitor of their profile, and the listener kept growing all year.
+ *  `max` is a GROWABLE window -- ProfilePage raises it on "Show more", so
+ *  nothing is unreachable, unlike a hard cap. */
+export function watchPostsByUser(uid: string, cb: (posts: Post[]) => void, max = 60) {
+  const q = query(postsCol, where('authorId', '==', uid), orderBy('createdAt', 'desc'), limit(max));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Post));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[POSTS] watchPostsByUser failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function toggleLike(postId: string, uid: string, liked: boolean) {

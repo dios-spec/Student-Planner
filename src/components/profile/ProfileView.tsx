@@ -31,11 +31,13 @@ interface ProfileViewProps {
 export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: ProfileViewProps) {
   const { user, profile: me } = useAuth();
   const { show } = useToast();
-  const { iBlocked, cannotInteract } = useBlocks(user?.uid);
+  const { iBlocked, interactionState } = useBlocks(user?.uid);
   const [profile, setProfile] = useState<StudentProfile | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [confirm, setConfirm] = useState<null | { title: string; message: string; danger?: boolean; action: () => void }>(null);
-  const { posts } = useUserPosts(uid || undefined);
+  const POST_PAGE = 60;
+  const [maxPosts, setMaxPosts] = useState(POST_PAGE);
+  const { posts } = useUserPosts(uid || undefined, maxPosts);
 
   const isMe = uid === user?.uid;
 
@@ -55,7 +57,14 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
 
   async function startDM() {
     if (!me || !profile) return;
-    if (cannotInteract(profile.id)) {
+    const state = interactionState(profile.id);
+    if (state === 'loading') {
+      // Block lists have not arrived yet. Do not open a DM we may not be
+      // allowed to write to -- the server would reject the first message.
+      show('Just a moment...');
+      return;
+    }
+    if (state === 'blocked') {
       show("You can't message this person.");
       return;
     }
@@ -150,12 +159,23 @@ export default function ProfileView({ uid, onClose, onImageClick, onStartDM }: P
             <div className="grid grid-cols-3 gap-1">
               {posts.map((post) => (
                 <button key={post.id} onClick={() => onImageClick(post.imageUrl)} className="aspect-square overflow-hidden bg-surface-alt">
-                  <img src={post.imageUrl} alt={post.caption || 'Post'} className="h-full w-full object-cover" />
+                  <img loading="lazy" decoding="async" src={post.imageUrl} alt={post.caption || 'Post'} className="h-full w-full object-cover" />
                 </button>
               ))}
             </div>
           ) : (
             <EmptyState emoji="📷" title="No posts yet" />
+          )}
+          {posts && posts.length >= maxPosts && (
+            <div className="mt-2 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setMaxPosts((n) => n + POST_PAGE)}
+                className="rounded-full border border-line bg-surface px-4 py-1.5 text-xs font-semibold text-ink-soft"
+              >
+                Show more posts
+              </button>
+            </div>
           )}
         </div>
       ) : (

@@ -1,4 +1,4 @@
-import { useState, lazy, Suspense } from 'react';
+import { useState, lazy, Suspense, type ReactNode } from 'react';
 import { BrowserRouter, Routes, Route, useLocation } from 'react-router-dom';
 import { useEffect } from 'react';
 import { AuthProvider, useAuth } from './context/AuthContext';
@@ -18,6 +18,8 @@ import { useBrowserNotifications } from './hooks/useBrowserNotifications';
 import { usePushNotifications } from './hooks/usePushNotifications';
 
 const HomePage = lazy(() => import('./pages/HomePage'));
+const PrivacyPage = lazy(() => import('./pages/PrivacyPage'));
+const DeleteAccountInfoPage = lazy(() => import('./pages/DeleteAccountInfoPage'));
 const PlannerPage = lazy(() => import('./pages/PlannerPage'));
 const UpcomingPage = lazy(() => import('./pages/UpcomingPage'));
 const StudyHelpPage = lazy(() => import('./pages/StudyHelpPage'));
@@ -137,6 +139,8 @@ function AppShell() {
                 <Route path="/settings/notifications" element={<NotificationSettingsPage />} />
                 <Route path="/merits" element={<MeritPage />} />
                 <Route path="/profile" element={<ProfilePage />} />
+                <Route path="/privacy" element={<PrivacyPage />} />
+                <Route path="/delete-account" element={<DeleteAccountInfoPage />} />
               </Routes>
             </Suspense>
           </main>
@@ -146,6 +150,32 @@ function AppShell() {
       </CallProvider>
       </MeritProvider>
     </ClassProvider>
+  );
+}
+
+/**
+ * Routes that must render WITHOUT signing in.
+ *
+ * Google Play requires a publicly reachable privacy policy and account
+ * deletion page. Everything else in the app sits behind AppShell's loading
+ * gate, which waits on Firebase auth -- so if auth were slow or failing, a
+ * reviewer opening the privacy URL would see a spinner. These two render
+ * straight away instead.
+ */
+const PUBLIC_PATHS = ['/privacy', '/delete-account'];
+
+function PublicGate({ children }: { children: ReactNode }) {
+  const { pathname } = useLocation();
+
+  if (!PUBLIC_PATHS.includes(pathname)) return <>{children}</>;
+
+  return (
+    <Suspense fallback={<PageFallback />}>
+      <Routes>
+        <Route path="/privacy" element={<PrivacyPage />} />
+        <Route path="/delete-account" element={<DeleteAccountInfoPage />} />
+      </Routes>
+    </Suspense>
   );
 }
 
@@ -172,8 +202,10 @@ export default function App() {
       <ToastProvider>
         <AuthProvider>
           <BrowserRouter>
-            {!splashDone && <SplashScreen onDone={finishSplash} />}
-            <AppShell />
+            <PublicGate>
+              {!splashDone && <SplashScreen onDone={finishSplash} />}
+              <AppShell />
+            </PublicGate>
             <Suspense fallback={null}>
               <PWAStatus />
             </Suspense>

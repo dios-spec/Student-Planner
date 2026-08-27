@@ -66,7 +66,7 @@ export default function HomePage() {
             <button onClick={() => navigate('/notifications')} aria-label="Notifications" className="relative rounded-full p-2 text-ink-soft hover:bg-surface-alt">
               <Bell size={20} />
               {unread > 0 && (
-                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[9px] font-bold text-white">
+                <span className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-3xs font-bold text-white">
                   {unread > 9 ? '9+' : unread}
                 </span>
               )}

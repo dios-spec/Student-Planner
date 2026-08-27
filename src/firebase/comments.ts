@@ -1,4 +1,5 @@
 import {
+  limit,
   addDoc,
   collection,
   deleteDoc,
@@ -60,11 +61,24 @@ export async function addComment(c: NewComment) {
 }
 
 /** Live listener for one post's comments, oldest first. */
-export function watchComments(postId: string, cb: (comments: Comment[]) => void) {
-  const q = query(commentsCol, where('postId', '==', postId), orderBy('createdAt', 'asc'));
+/** Comments on one post, oldest first.
+ *  Previously unbounded, so a popular post streamed every comment to every
+ *  viewer forever. Ordered DESC to take the NEWEST `max` (taking the oldest
+ *  would hide the active end of the thread), then reversed for display.
+ *  CommentsSheet raises `max` on "Show earlier comments". */
+export function watchComments(postId: string, cb: (comments: Comment[]) => void, max = 100) {
+  const q = query(commentsCol, where('postId', '==', postId), orderBy('createdAt', 'desc'), limit(max));
   return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Comment));
-  });
+    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Comment).reverse());
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[COMMENTS] watchComments failed:', err);
+      cb([]);
+    }
+  );
 }
 
 /** Author-only delete of a comment. */

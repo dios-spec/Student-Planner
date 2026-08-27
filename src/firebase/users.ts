@@ -34,10 +34,23 @@ export async function ensureUserProfile(uid: string): Promise<void> {
   });
 }
 
-export function watchUserProfile(uid: string, cb: (p: StudentProfile | null) => void) {
-  return onSnapshot(doc(usersCol, uid), (snap) => {
-    cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as StudentProfile) : null);
-  });
+export function watchUserProfile(
+  uid: string,
+  cb: (p: StudentProfile | null) => void,
+  onError?: (err: unknown) => void
+) {
+  return onSnapshot(
+    doc(usersCol, uid),
+    (snap) => {
+      cb(snap.exists() ? ({ id: snap.id, ...snap.data() } as StudentProfile) : null);
+    },
+    (err) => {
+      // Without this handler a rules denial killed the listener silently and
+      // the app hung on its loading screen with no way forward.
+      console.error('[PROFILE] watchUserProfile failed:', err);
+      onError?.(err);
+    }
+  );
 }
 
 export async function updateUserProfile(

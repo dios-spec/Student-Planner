@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Users, PenSquare, Search, X } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import TopBar from '../components/layout/TopBar';
 import ConversationList from '../components/dm/ConversationList';
 import ConversationScreen from '../components/dm/ConversationScreen';
@@ -13,13 +14,14 @@ import { useBlocks } from '../hooks/useBlocks';
 import { getConversationOnce } from '../firebase/conversations';
 import { useAuth } from '../context/AuthContext';
 import type { Conversation } from '../types';
+import { dmPeerOf } from '../utils/blockPolicy';
 import { useMeritContext } from '../context/MeritContext';
 import StudentMeritPill from '../components/merit/StudentMeritPill';
 
 export default function MessagesPage() {
   const { user } = useAuth();
   const { conversations, loading } = useConversations(user?.uid);
-  const { cannotInteract } = useBlocks(user?.uid);
+  const { interactionState } = useBlocks(user?.uid);
   const { profiles: liveProfileMap } = useMeritContext();
   const [active, setActive] = useState<Conversation | null>(null);
   const [groupInfo, setGroupInfo] = useState<Conversation | null>(null);
@@ -28,6 +30,8 @@ export default function MessagesPage() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [sharedStoryId, setSharedStoryId] = useState<string | null>(null);
   const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const handledDeepLink = useRef<string | null>(null);
   const allProfiles = Object.values(liveProfileMap).filter((p) => p.id !== user?.uid && p.onboarded);
 
   async function openById(id: string) {
@@ -35,8 +39,37 @@ export default function MessagesPage() {
     if (c) setActive(c);
   }
 
+  // Every DM, group-invite, added-to-group, admin-promote and missed-call
+  // notification routes to `/messages?open=<conversationId>`, and SavedPage
+  // links saved DM messages the same way -- but this page never read the
+  // parameter, so all of those links dumped the user on the conversation LIST
+  // and the thread they tapped never opened.
+  useEffect(() => {
+    const requested = searchParams.get('open');
+    if (!requested || handledDeepLink.current === requested) return;
+    handledDeepLink.current = requested;
+
+    void openById(requested).finally(() => {
+      // Drop the parameter so a later back-navigation does not reopen it.
+      setSearchParams(
+        (params) => {
+          const next = new URLSearchParams(params);
+          next.delete('open');
+          return next;
+        },
+        { replace: true }
+      );
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchParams]);
+
   function otherIdOf(c: Conversation) {
     return c.type === 'dm' ? c.memberIds.find((m) => m !== user?.uid) || '' : '';
+  }
+
+  /** Strict peer lookup used for the block gate (null unless a real 2-person DM). */
+  function dmPeerFor(c: Conversation) {
+    return c.type === 'dm' && user ? dmPeerOf(c.memberIds, user.uid) : null;
   }
 
   const liveActive = active ? conversations?.find((c) => c.id === active.id) || active : null;
@@ -75,6 +108,7 @@ export default function MessagesPage() {
         <div className="flex items-center gap-2 border-b border-line bg-surface px-3 py-2">
           <Search size={16} className="text-ink-soft" />
           <input
+            aria-label="Search chats and people"
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
@@ -119,12 +153,15 @@ export default function MessagesPage() {
 
       {liveActive && (
         <ConversationScreen
+          // Remount on conversation switch so the accumulated transcript,
+          // pagination cursor and scroll position never leak between threads.
+          key={liveActive.id}
           conversation={liveActive}
           onBack={() => setActive(null)}
           onOpenProfile={setViewUid}
           onOpenGroupInfo={(c) => setGroupInfo(c)}
           onOpenShared={(shared) => { if (shared.kind === 'story') setSharedStoryId(shared.id); }}
-          blocked={liveActive.type === 'dm' && cannotInteract(otherIdOf(liveActive))}
+          interaction={interactionState(dmPeerFor(liveActive))}
         />
       )}
 

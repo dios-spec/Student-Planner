@@ -1,4 +1,5 @@
 import {
+  limit,
   collection, deleteDoc, doc, onSnapshot, query, serverTimestamp, setDoc, where,
 } from 'firebase/firestore';
 import { db } from './config';
@@ -36,11 +37,21 @@ export async function unsaveItem(userId: string, type: SavedItemType, refId: str
 }
 
 export function watchMySaved(uid: string, cb: (items: SavedItem[]) => void) {
-  const q = query(savedCol, where('userId', '==', uid));
+  // Own bookmarks. Capped generously rather than paginated: this is a personal
+  // list, and 500 saved items is far beyond realistic use for a school year.
+  const q = query(savedCol, where('userId', '==', uid), limit(500));
   return onSnapshot(q, (snap) => {
     const list = snap.docs
       .map((d) => ({ id: d.id, ...d.data() }) as SavedItem)
       .sort((a, b) => ((b.createdAt && b.createdAt.toMillis) ? b.createdAt.toMillis() : 0) - ((a.createdAt && a.createdAt.toMillis) ? a.createdAt.toMillis() : 0));
     cb(list);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[SAVED] watchMySaved failed:', err);
+      cb([]);
+    }
+  );
 }

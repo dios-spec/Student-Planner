@@ -41,7 +41,7 @@ export default function MeritHistory({ records }: { records: MeritRecord[] }) {
                 </span>
               </div>
               <p className="mt-0.5 text-sm text-ink">{record.reason}</p>
-              <p className="mt-1 text-[11px] text-ink-soft">{dateLabel(record)} / {record.classId}</p>
+              <p className="mt-1 text-2xs text-ink-soft">{dateLabel(record)} / {record.classId}</p>
             </div>
           </div>
         );

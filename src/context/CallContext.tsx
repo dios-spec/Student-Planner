@@ -7,11 +7,13 @@ import {
   joinCall,
   declineCall,
   getCallOnce,
+  leaveCall,
 } from '../firebase/calls';
 import CallScreen from '../components/call/CallScreen';
 import IncomingCall from '../components/call/IncomingCall';
 import type { CallDoc, Conversation, StudentProfile } from '../types';
 import { primeRingtone } from '../utils/ringtone';
+import { closeCallNotifications } from '../firebase/push';
 import { primeSfx } from '../utils/sfx';
 
 interface CallContextValue {
@@ -76,6 +78,18 @@ export function CallProvider({ children }: { children: ReactNode }) {
       const call = await getCallOnce(callId);
       if (cancelled || !call || !call.memberIds.includes(user.uid)) return;
 
+      // A notification can outlive the call it describes -- it is sticky, and
+      // the user may tap it minutes later. Accepting used to call joinCall()
+      // unconditionally, which sets status back to 'connected' and so
+      // RESURRECTED a call that had already ended, declined or timed out. Only
+      // a call that is genuinely still live may be joined.
+      const joinable = call.status === 'ringing' || call.status === 'connecting' || call.status === 'connected';
+      if (!joinable) {
+        void closeCallNotifications(callId);
+        if (!cancelled) setIncoming(null);
+        return;
+      }
+
       if (action === 'accept') {
         await joinCall(callId, user.uid);
         if (!cancelled) {
@@ -84,6 +98,7 @@ export function CallProvider({ children }: { children: ReactNode }) {
         }
       } else {
         await declineCall(callId, user.uid, call.type === 'group');
+        void closeCallNotifications(callId);
         if (!cancelled) setIncoming(null);
       }
     })()
@@ -102,12 +117,32 @@ export function CallProvider({ children }: { children: ReactNode }) {
     return () => { cancelled = true; };
   }, [user]);
 
+  // Closing the tab or refreshing mid-call used to leave the document at
+  // 'connected' forever: React unmount effects do not run on unload, so the
+  // other person kept watching a running timer in silence. Best-effort end the
+  // call on the way out.
+  useEffect(() => {
+    if (!activeCall || !user) return;
+
+    const call = activeCall;
+    const me = user.uid;
+    const onLeave = () => {
+      void leaveCall(call.id, me, call.type === 'group').catch(() => {});
+    };
+
+    window.addEventListener('pagehide', onLeave);
+    return () => window.removeEventListener('pagehide', onLeave);
+  }, [activeCall, user]);
+
   // Keep the active call fresh + auto-close when it ends.
   useEffect(() => {
     if (!activeCallId) { setActiveCall(null); return; }
-    return watchCall(activeCallId, (c) => {
+    const watchedId = activeCallId;
+    return watchCall(watchedId, (c) => {
       setActiveCall(c);
       if (!c || c.status === 'ended' || c.status === 'declined' || c.status === 'missed' || c.status === 'unavailable') {
+        // The call is over: make sure no notification still claims otherwise.
+        void closeCallNotifications(watchedId);
         setActiveCallId(null);
         setActiveCall(null);
         setCallMinimized(false);
@@ -139,6 +174,7 @@ const createdCall = await startCallSvc(
       console.error('[CALL] joinCall failed:', err);
       return;
     }
+    void closeCallNotifications(incoming.id);
     setActiveCallId(incoming.id);
     setCallMinimized(false);
     setIncoming(null);
@@ -148,11 +184,13 @@ const createdCall = await startCallSvc(
     if (!incoming || !user) return;
     // Declining always dismisses locally -- a failed write must not trap the
     // user on a ringing screen they explicitly rejected.
+    const declinedId = incoming.id;
     try {
-      await declineCall(incoming.id, user.uid, incoming.type === 'group');
+      await declineCall(declinedId, user.uid, incoming.type === 'group');
     } catch (err) {
       console.error('[CALL] declineCall failed:', err);
     } finally {
+      void closeCallNotifications(declinedId);
       setIncoming(null);
     }
   }

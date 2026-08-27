@@ -7,10 +7,22 @@ import {
   activeLock,
   clientIpFromHeaders,
   nextFailedAttempt,
-  normalizePasswordHash,
-  passwordMatches,
+  parsePasswordVerifier,
   rateLimitDocumentId,
+  verifyPassword,
 } from './_lib/teacherVerification.js';
+
+/** Preferred scrypt verifier, falling back to the deprecated SHA-256 value so
+ *  that shipping this code before rotating the env var cannot lock teachers out. */
+function configuredVerifierValue() {
+  return (
+    process.env.TEACHER_VERIFICATION_PASSWORD_HASH ||
+    process.env.TEACHER_VERIFICATION_PASSWORD_SHA256 ||
+    ''
+  );
+}
+
+let legacyWarningLogged = false;
 
 const MAX_BODY_BYTES = 4096;
 
@@ -154,19 +166,29 @@ export default async function handler(req, res) {
       return send(res, 400, { error: 'Teacher password required', code: 'invalid_request' });
     }
 
-    let expectedHash;
+    const verifierValue = configuredVerifierValue();
+    let verifier;
     try {
-      expectedHash = normalizePasswordHash(process.env.TEACHER_VERIFICATION_PASSWORD_SHA256);
+      verifier = parsePasswordVerifier(verifierValue);
     } catch {
-      console.error('[TEACHER VERIFY] Password hash is not configured');
+      console.error('[TEACHER VERIFY] Password verifier is not configured or is malformed');
       return send(res, 503, { error: 'Teacher verification is not configured', code: 'not_configured' });
+    }
+
+    if (verifier.legacy && !legacyWarningLogged) {
+      legacyWarningLogged = true;
+      console.warn(
+        '[TEACHER VERIFY] Using the deprecated unsalted SHA-256 password format. ' +
+          'Generate a scrypt verifier with `npm run teacher:hash` and move it to ' +
+          'TEACHER_VERIFICATION_PASSWORD_HASH.'
+      );
     }
 
     const ip = clientIpFromHeaders(req.headers);
     const entries = [
       {
         ref: db.collection('teacherVerificationAttempts').doc(
-          rateLimitDocumentId('uid', decoded.uid, expectedHash)
+          rateLimitDocumentId('uid', decoded.uid, verifierValue)
         ),
         maxAttempts: MAX_ATTEMPTS,
       },
@@ -174,13 +196,13 @@ export default async function handler(req, res) {
     if (ip) {
       entries.push({
         ref: db.collection('teacherVerificationAttempts').doc(
-          rateLimitDocumentId('ip', ip, expectedHash)
+          rateLimitDocumentId('ip', ip, verifierValue)
         ),
         maxAttempts: MAX_IP_ATTEMPTS,
       });
     }
 
-    const correctPassword = passwordMatches(password, expectedHash);
+    const correctPassword = await verifyPassword(password, verifier);
     const gate = await applyRateLimit(db, entries, correctPassword);
 
     if (gate.rateLimited) {

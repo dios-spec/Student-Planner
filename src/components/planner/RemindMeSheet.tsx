@@ -82,6 +82,7 @@ export default function RemindMeSheet({ open, onClose, item }: RemindMeSheetProp
         </button>
         <div className="flex items-center gap-2 pt-1">
           <input
+            aria-label="Reminder date and time"
             type="datetime-local"
             value={customValue}
             onChange={(e) => setCustomValue(e.target.value)}

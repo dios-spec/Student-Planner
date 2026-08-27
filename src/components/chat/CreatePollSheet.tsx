@@ -48,6 +48,7 @@ export default function CreatePollSheet({ open, onClose, onCreate }: CreatePollS
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Question</label>
           <input
+              aria-label="Question"
             value={question}
             onChange={(e) => setQuestion(e.target.value.slice(0, 200))}
             placeholder="What chapter is tomorrow's test?"
@@ -61,6 +62,7 @@ export default function CreatePollSheet({ open, onClose, onCreate }: CreatePollS
             {options.map((opt, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
+                  aria-label={`Poll option ${i + 1}`}
                   value={opt}
                   onChange={(e) => updateOption(i, e.target.value)}
                   placeholder={'Option ' + (i + 1)}

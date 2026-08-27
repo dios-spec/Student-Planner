@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import DismissLayer from '../shared/DismissLayer';
 import { Megaphone, MoreVertical, Pencil, Trash2 } from 'lucide-react';
 import type { PlannerItem } from '../../types';
 import PlannerAttachments from './PlannerAttachments';
@@ -33,7 +34,7 @@ export default function ImportantBanner({ items, onEdit, onDelete }: ImportantBa
             </button>
             {menuFor === item.id && (
               <>
-                <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                <DismissLayer onDismiss={() => setMenuFor(null)} />
                 <div className="absolute right-0 top-7 z-20 w-32 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
                   <button
                     onClick={() => { setMenuFor(null); onEdit(item); }}

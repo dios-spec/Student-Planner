@@ -57,14 +57,14 @@ export default function ConversationList({
                   </p>
                   {!isGroup && <StudentMeritPill uid={otherId} size="micro" />}
                 </div>
-                <span className="shrink-0 text-[11px] text-ink-soft">{time}</span>
+                <span className="shrink-0 text-2xs text-ink-soft">{time}</span>
               </div>
               <div className="flex items-center justify-between gap-2">
                 <p className={`truncate text-xs ${unread > 0 ? 'font-medium text-ink' : 'text-ink-soft'}`}>
                   {c.lastText || 'No messages yet'}
                 </p>
                 {unread > 0 && (
-                  <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-[11px] font-bold text-white">
+                  <span className="flex h-5 min-w-5 shrink-0 items-center justify-center rounded-full bg-accent px-1.5 text-2xs font-bold text-white">
                     {unread > 99 ? '99+' : unread}
                   </span>
                 )}

@@ -43,14 +43,31 @@ export function watchReels(cb: (reels: Reel[]) => void) {
   const q = query(reelsCol, orderBy('createdAt', 'desc'), limit(50));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Reel));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[REELS] watchReels failed:', err);
+      cb([]);
+    }
+  );
 }
 
-export function watchReelsByUser(uid: string, cb: (reels: Reel[]) => void) {
-  const q = query(reelsCol, where('authorId', '==', uid), orderBy('createdAt', 'desc'));
+/** Author's reels, newest first. Growable window -- see watchPostsByUser. */
+export function watchReelsByUser(uid: string, cb: (reels: Reel[]) => void, max = 50) {
+  const q = query(reelsCol, where('authorId', '==', uid), orderBy('createdAt', 'desc'), limit(max));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Reel));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[REELS] watchReelsByUser failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function toggleReelLike(reelId: string, uid: string, liked: boolean) {

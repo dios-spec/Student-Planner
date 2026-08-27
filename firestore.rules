@@ -44,6 +44,37 @@ service cloud.firestore {
       return exists(/databases/$(database)/documents/users/$(uid))
         && get(/databases/$(database)/documents/users/$(uid)).data.get('role', 'student') != 'teacher';
     }
+    // ---- Blocking (server-enforced) ----
+    // Block documents are keyed `<blockerUid>_<blockedUid>` (see
+    // src/firebase/blocks.ts blockDocId). Blocking used to be enforced ONLY in
+    // React: a blocked student could call the SDK directly and write straight
+    // into the DM, and it appeared in the blocker's chat. These helpers move
+    // enforcement to the server.
+    function blockDocExists(blocker, blocked) {
+      return exists(/databases/$(database)/documents/blocks/$(blocker + '_' + blocked));
+    }
+    // Either direction counts: if I blocked them, or they blocked me, the
+    // channel is closed for me. Mirrors useBlocks().cannotInteract.
+    function notBlockedWith(peerUid) {
+      return !blockDocExists(peerUid, request.auth.uid)
+        && !blockDocExists(request.auth.uid, peerUid);
+    }
+    // The peer is derived from SERVER-STORED memberIds, never from a
+    // client-supplied field and never by parsing the document id. DM
+    // memberIds are fixed at creation (size == 2, and no update branch can
+    // change them for a dm), so this is stable for every existing
+    // conversation -- no schema change and no backfill required.
+    function dmPeerOf(memberIds) {
+      return memberIds[0] == request.auth.uid ? memberIds[1] : memberIds[0];
+    }
+    // Group conversations are unaffected; blocking is a 1:1 relationship.
+    function dmChannelOpen(conv) {
+      return conv.type != 'dm'
+        || !(conv.memberIds is list)
+        || conv.memberIds.size() != 2
+        || notBlockedWith(dmPeerOf(conv.memberIds));
+    }
+
     function publicPushFieldsUnchangedOrRemoved() {
       return !request.resource.data.diff(resource.data).affectedKeys()
         .hasAny(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
@@ -78,13 +109,28 @@ service cloud.firestore {
     // Private per-user push tokens. Public profile readers never see these.
     match /pushDevices/{uid} {
       allow read: if isOwner(uid);
+      // `devices` is the timestamped, bounded device list; `fcmTokens` is the
+      // flat mirror the server fan-out reads. The client computes both in full
+      // from the current document rather than using arrayUnion, so the cap can
+      // never be hit by ordinary FCM token rotation and lock the user out of
+      // push. See src/utils/pushDevices.ts.
       allow create, update: if isOwner(uid)
-        && request.resource.data.keys().hasOnly(['fcmToken', 'fcmTokens', 'pushUpdatedAt'])
+        && request.resource.data.keys().hasOnly(['fcmToken', 'fcmTokens', 'devices', 'pushUpdatedAt'])
         && strLen(request.resource.data.get('fcmToken', ''), 4096)
         && request.resource.data.get('fcmTokens', []) is list
-        && request.resource.data.get('fcmTokens', []).size() <= 20
+        && request.resource.data.get('fcmTokens', []).size() <= 10
+        && request.resource.data.get('devices', []) is list
+        && request.resource.data.get('devices', []).size() <= 10
         && request.resource.data.pushUpdatedAt == request.time;
       allow delete: if isOwner(uid);
+    }
+
+    // Server-only record of account-deletion progress, written by
+    // /api/delete-account with the Admin SDK. A client must never be able to
+    // read, forge or clear it -- it is the only trace that a deletion started
+    // and did not finish.
+    match /accountDeletions/{uid} {
+      allow read, write: if false;
     }
 
     // Server-only rate-limit state for teacher verification. Admin SDK writes
@@ -352,7 +398,9 @@ service cloud.firestore {
         && request.resource.data.createdAt == request.time
         && (
           (request.resource.data.type == 'dm'
-            && request.resource.data.memberIds.size() == 2)
+            && request.resource.data.memberIds.size() == 2
+            // Cannot open a DM channel with someone either side has blocked.
+            && notBlockedWith(dmPeerOf(request.resource.data.memberIds)))
           ||
           (request.resource.data.type == 'group'
             && request.resource.data.createdBy == request.auth.uid
@@ -371,9 +419,13 @@ service cloud.firestore {
         && request.resource.data.type == resource.data.type
         && request.resource.data.createdAt == resource.data.createdAt
         && (
+          // Marking your own copy read is self-state and stays allowed even
+          // when blocked, so an existing thread can still be dismissed.
           memberReadUpdateOnly()
-          || memberMessagePreviewOnly()
-          || memberTypingOnly()
+          // These two are outbound signals the other person sees, so they are
+          // gated the same way as sending a message.
+          || (memberMessagePreviewOnly() && dmChannelOpen(resource.data))
+          || (memberTypingOnly() && dmChannelOpen(resource.data))
           || memberPinnedOnly()
           || adminGroupUpdate()
           || nonAdminSelfLeave()
@@ -392,6 +444,7 @@ service cloud.firestore {
 
         allow read: if convMember();
         allow create: if convMember()
+          && dmChannelOpen(convData())
           && request.resource.data.conversationId == convId
           && request.resource.data.senderId == request.auth.uid
           && request.resource.data.createdAt == request.time
@@ -401,6 +454,9 @@ service cloud.firestore {
           && validMediaUrl(request.resource.data.get('imageUrl', ''))
           && validMediaUrl(request.resource.data.get('audioUrl', ''));
         allow update: if convMember()
+          // Edits, reactions and poll votes are all visible to the other
+          // person, so a blocked sender must not be able to make them either.
+          && dmChannelOpen(convData())
           && request.resource.data.conversationId == resource.data.conversationId
           && request.resource.data.senderId == resource.data.senderId
           && request.resource.data.createdAt == resource.data.createdAt
@@ -467,7 +523,10 @@ service cloud.firestore {
              'adminPromote', 'addedToGroup', 'homework', 'exam',
              'announcement', 'incomingCall', 'missedCall', 'postLike',
              'classMessage', 'classReaction', 'studyHelp', 'storyNew',
-             'reelLike', 'storyLike'
+             'reelLike', 'storyLike',
+             // Control payload telling the service worker to close a dead
+             // ringing-call notification. Never displayed in the app.
+             'callEnded'
            ]
         && strLen(request.resource.data.title, 120)
         && strLen(request.resource.data.get('body', ''), 500)
@@ -477,7 +536,14 @@ service cloud.firestore {
         && request.resource.data.get('data', {}) is map
         && request.resource.data.get('data', {}).size() <= 20
         && request.resource.data.read == false
-        && request.resource.data.createdAt == request.time;
+        && request.resource.data.createdAt == request.time
+        // DM notifications are 1:1 by definition, so the block check is one
+        // extra read on a single-recipient write. Fan-out types (classMessage,
+        // homework, announcement, ...) are deliberately NOT gated here: they
+        // are broadcasts, and paying 2 exists() per recipient across a 300
+        // student class would be a large and pointless read amplification.
+        && (request.resource.data.type != 'dm'
+            || notBlockedWith(request.resource.data.userId));
     }
 
     // ---- Calls: members may update call state, but not rewrite call identity ----
@@ -502,7 +568,9 @@ service cloud.firestore {
         && request.resource.data.memberIds.size() <= 100
         && request.resource.data.participants is map
         && request.resource.data.memberIds == conversationData().memberIds
-        && request.resource.data.type == conversationData().type;
+        && request.resource.data.type == conversationData().type
+        // A blocked user must not be able to ring the person who blocked them.
+        && dmChannelOpen(conversationData());
       allow update: if callMember()
         && request.resource.data.conversationId == resource.data.conversationId
         && request.resource.data.type == resource.data.type
@@ -533,7 +601,13 @@ service cloud.firestore {
           && request.resource.data.to in callData().memberIds
           && sigId == request.auth.uid + '__' + request.resource.data.to
           && request.resource.data.updatedAt == request.time;
-        allow delete: if false;
+        // A peer must be able to clear its own signalling state when it leaves
+        // or the call ends. Without this, stale SDP from a previous session is
+        // replayed on rejoin and the new connection can never establish.
+        // Limited to pairs this member is actually part of.
+        allow delete: if isCallMember()
+          && (sigId.matches(request.auth.uid + '__.*')
+              || sigId.matches('.*__' + request.auth.uid));
       }
     }
 

@@ -30,7 +30,15 @@ export function watchMyReminders(uid: string, cb: (list: Reminder[]) => void) {
       .filter((r) => !r.sent)
       .sort((a, b) => (a.remindAt && a.remindAt.toMillis ? a.remindAt.toMillis() : 0) - (b.remindAt && b.remindAt.toMillis ? b.remindAt.toMillis() : 0));
     cb(list);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[REMINDERS] watchMyReminders failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function cancelReminder(id: string) {

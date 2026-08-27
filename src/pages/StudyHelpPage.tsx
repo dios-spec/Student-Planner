@@ -257,7 +257,7 @@ export default function StudyHelpPage() {
                   >
                     <span>
                       <span className="block text-sm font-semibold text-ink">{chapter}</span>
-                      <span className="block text-[11px] text-ink-soft">{items.length} {items.length === 1 ? 'resource' : 'resources'}</span>
+                      <span className="block text-2xs text-ink-soft">{items.length} {items.length === 1 ? 'resource' : 'resources'}</span>
                     </span>
                     <ChevronDown size={17} className={`text-ink-soft transition-transform ${isCollapsed ? '-rotate-90' : ''}`} />
                   </button>
@@ -270,19 +270,19 @@ export default function StudyHelpPage() {
                           <article key={material.id} className="min-w-0 overflow-hidden rounded-xl border border-line bg-paper">
                             <button type="button" onClick={() => setPreview(material.imageUrl)} className="relative block w-full">
                               <img src={material.imageUrl} alt={material.title} loading="lazy" decoding="async" className="aspect-square w-full object-cover" />
-                              <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 px-2 py-0.5 text-[10px] font-medium text-white">
+                              <span className="absolute bottom-1.5 left-1.5 rounded-full bg-black/65 px-2 py-0.5 text-3xs font-medium text-white">
                                 {kind.emoji} {kind.shortLabel}
                               </span>
                             </button>
                             <div className="p-2">
                               <p className="truncate text-xs font-semibold text-ink">{material.title}</p>
-                              {material.description && <p className="mt-0.5 line-clamp-2 text-[10px] leading-4 text-ink-soft">{material.description}</p>}
+                              {material.description && <p className="mt-0.5 line-clamp-2 text-3xs leading-4 text-ink-soft">{material.description}</p>}
                               <div className="mt-1.5 flex items-center gap-1.5">
                                 <Avatar name={material.uploaderName} src={material.uploaderAvatar} size="sm" />
-                                <span className="truncate text-[10px] text-ink-soft">{material.uploaderName}</span>
+                                <span className="truncate text-3xs text-ink-soft">{material.uploaderName}</span>
                               </div>
                               <div className="mt-1.5 flex items-center justify-between">
-                                <span className="truncate text-[10px] text-ink-soft">
+                                <span className="truncate text-3xs text-ink-soft">
                                   {material.createdAt?.toDate ? relativeTime(material.createdAt.toDate()) : ''}
                                 </span>
                                 <div className="flex items-center gap-2">

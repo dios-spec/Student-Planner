@@ -31,6 +31,7 @@ export default function MyNotes() {
 
       <div className="mb-3 flex gap-2">
         <input
+          aria-label="New note"
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => e.key === 'Enter' && handleAdd()}
@@ -38,8 +39,13 @@ export default function MyNotes() {
           maxLength={MAX_NOTE_LENGTH}
           className="flex-1 rounded-xl border border-line bg-paper px-3 py-2 text-sm outline-none focus:border-accent"
         />
-        <button onClick={handleAdd} disabled={!text.trim()} className="rounded-xl bg-accent px-3 text-white disabled:opacity-40">
-          <Plus size={18} />
+        <button
+          onClick={handleAdd}
+          disabled={!text.trim()}
+          aria-label="Add note"
+          className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-accent text-white disabled:opacity-40"
+        >
+          <Plus size={18} aria-hidden="true" />
         </button>
       </div>
 

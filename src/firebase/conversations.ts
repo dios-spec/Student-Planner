@@ -115,7 +115,9 @@ export async function createGroup(g: NewGroup): Promise<string> {
  *  Sorted client-side so we don't need a composite index (instant, no build wait)
  *  and so brand-new DMs with no messages yet still appear. */
 export function watchMyConversations(uid: string, cb: (list: Conversation[]) => void) {
-  const q = query(convCol, where('memberIds', 'array-contains', uid));
+  // Your chat list. Bounded by how many conversations you are actually in;
+  // 300 is far above realistic use and prevents an unbounded live listener.
+  const q = query(convCol, where('memberIds', 'array-contains', uid), limit(300));
   return onSnapshot(q, (snap) => {
     const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Conversation);
     list.sort((a, b) => {
@@ -124,7 +126,15 @@ export function watchMyConversations(uid: string, cb: (list: Conversation[]) => 
       return bt - at;
     });
     cb(list);
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[DM] watchMyConversations failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export function watchConversation(id: string, cb: (c: Conversation | null) => void) {

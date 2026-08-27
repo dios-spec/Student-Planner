@@ -1,39 +1,59 @@
-import { doc, getDoc, setDoc, updateDoc, onSnapshot, Timestamp } from 'firebase/firestore';
+import { doc, onSnapshot, runTransaction, Timestamp } from 'firebase/firestore';
 import { db } from './config';
 import type { Conversation, PinnedMessage } from '../types';
+import { applyPin, applyUnpin, type PinOutcome } from '../utils/pinList';
 
-const MAX_PINNED = 20;
 const classPinsRef = doc(db, 'appMeta', 'classChatPins');
 
-function stripUndefined<T extends Record<string, unknown>>(obj: T): T {
-  const clean = { ...obj };
-  Object.keys(clean).forEach((k) => clean[k] === undefined && delete clean[k]);
-  return clean;
-}
 
 // ---- Class chat: single shared pinned list ----
 
 export function watchClassPins(cb: (pinned: PinnedMessage[]) => void) {
   return onSnapshot(classPinsRef, (snap) => {
     cb(snap.exists() ? ((snap.data().pinned as PinnedMessage[]) || []) : []);
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[PINS] watchClassPins failed:', err);
+      cb([]);
+    }
+  );
+}
+
+/**
+ * All four functions below were read-modify-write races.
+ *
+ * pinClassMessage/unpinClassMessage did getDoc() then wrote the whole array
+ * back with merge -- and Firestore merge REPLACES an array rather than merging
+ * it, so two students pinning different messages within the round-trip window
+ * silently lost one of the pins. The DM variants were worse: they never read at
+ * all, they trusted the `pinned` array on whatever Conversation object the
+ * component happened to be holding, so any stale render clobbered the list.
+ *
+ * runTransaction re-reads and retries on conflict, which is the only safe way
+ * to mutate a shared array from multiple clients.
+ */
+
+export async function pinClassMessage(entry: Omit<PinnedMessage, 'pinnedAt'>): Promise<PinOutcome> {
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(classPinsRef);
+    const current: PinnedMessage[] = snap.exists() ? (snap.data().pinned as PinnedMessage[]) || [] : [];
+    const { outcome, next } = applyPin(current, entry, Timestamp.now());
+    if (next) tx.set(classPinsRef, { pinned: next }, { merge: true });
+    return outcome;
   });
 }
 
-export async function pinClassMessage(entry: Omit<PinnedMessage, 'pinnedAt'>): Promise<'ok' | 'full'> {
-  const snap = await getDoc(classPinsRef);
-  const current: PinnedMessage[] = snap.exists() ? (snap.data().pinned as PinnedMessage[]) || [] : [];
-  if (current.some((p) => p.messageId === entry.messageId)) return 'ok';
-  if (current.length >= MAX_PINNED) return 'full';
-  const next = [...current, stripUndefined({ ...entry, pinnedAt: Timestamp.now() })];
-  await setDoc(classPinsRef, { pinned: next }, { merge: true });
-  return 'ok';
-}
-
 export async function unpinClassMessage(messageId: string) {
-  const snap = await getDoc(classPinsRef);
-  if (!snap.exists()) return;
-  const current: PinnedMessage[] = (snap.data().pinned as PinnedMessage[]) || [];
-  await updateDoc(classPinsRef, { pinned: current.filter((p) => p.messageId !== messageId) });
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(classPinsRef);
+    if (!snap.exists()) return;
+    const current: PinnedMessage[] = (snap.data().pinned as PinnedMessage[]) || [];
+    const next = applyUnpin(current, messageId);
+    if (next) tx.set(classPinsRef, { pinned: next }, { merge: true });
+  });
 }
 
 // ---- DM / group: pinned list lives on the conversation doc itself ----
@@ -41,16 +61,27 @@ export async function unpinClassMessage(messageId: string) {
 export async function pinDMMessage(
   conversation: Conversation,
   entry: Omit<PinnedMessage, 'pinnedAt'>
-): Promise<'ok' | 'full'> {
-  const current = conversation.pinned || [];
-  if (current.some((p) => p.messageId === entry.messageId)) return 'ok';
-  if (current.length >= MAX_PINNED) return 'full';
-  const next = [...current, stripUndefined({ ...entry, pinnedAt: Timestamp.now() })];
-  await updateDoc(doc(db, 'conversations', conversation.id), { pinned: next });
-  return 'ok';
+): Promise<PinOutcome> {
+  const ref = doc(db, 'conversations', conversation.id);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return 'ok' as PinOutcome;
+    const current = ((snap.data().pinned as PinnedMessage[]) || []);
+    const { outcome, next } = applyPin(current, entry, Timestamp.now());
+    // Only `pinned` may change here -- memberPinnedOnly() in firestore.rules
+    // rejects an update that touches any other key.
+    if (next) tx.update(ref, { pinned: next });
+    return outcome;
+  });
 }
 
 export async function unpinDMMessage(conversation: Conversation, messageId: string) {
-  const next = (conversation.pinned || []).filter((p) => p.messageId !== messageId);
-  await updateDoc(doc(db, 'conversations', conversation.id), { pinned: next });
+  const ref = doc(db, 'conversations', conversation.id);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) return;
+    const current = ((snap.data().pinned as PinnedMessage[]) || []);
+    const next = applyUnpin(current, messageId);
+    if (next) tx.update(ref, { pinned: next });
+  });
 }

@@ -9,6 +9,7 @@ import ProfileView from '../components/profile/ProfileView';
 import { PlannerSkeleton } from '../components/shared/Skeleton';
 import EmptyState from '../components/shared/EmptyState';
 import { useMessages } from '../hooks/useMessages';
+import { useTranscript } from '../hooks/useTranscript';
 import { useActiveStudentCount } from '../hooks/usePresence';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
@@ -35,7 +36,6 @@ export default function ChatPage() {
   const { messages, loading } = useMessages();
   const activeCount = useActiveStudentCount();
   const pinned = useClassPins();
-  const profiles = useLiveProfiles((messages || []).map((m) => m.senderId));
   const { isSaved } = useSavedItems(user?.uid);
   const typingNames = useClassTyping(user?.uid);
   const notifyTyping = useTypingThrottle((isTyping) => {
@@ -49,18 +49,25 @@ export default function ChatPage() {
 
   // BUG-18: loadOlderMessages() existed but was wired to nothing, so all class
   // chat history beyond the first page was unreachable in the app.
-  const [older, setOlder] = useState<ChatMessage[]>([]);
+  //
+  // The transcript is accumulated rather than concatenated: `[...older, ...live]`
+  // silently dropped every message that slid out of the capped live window
+  // without having been fetched into `older` (see utils/transcript.ts).
+  const { items: transcript, prependOlder } = useTranscript<ChatMessage>(messages);
+  // Live names/avatars for every author in the rendered transcript, including
+  // the ones from loaded history rather than only the live window.
+  const profiles = useLiveProfiles(transcript.map((m) => m.senderId));
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [noMoreOlder, setNoMoreOlder] = useState(false);
 
   async function handleLoadOlder() {
-    const oldestLoaded = older[0] || (messages && messages[0]);
+    const oldestLoaded = transcript[0];
     if (!oldestLoaded?.createdAt || loadingOlder) return;
     setLoadingOlder(true);
     try {
       const page = await loadOlderMessages(oldestLoaded.createdAt);
       if (!page.length) setNoMoreOlder(true);
-      else setOlder((prev) => [...page, ...prev]);
+      else prependOlder(page);
     } catch {
       show("Couldn't load older messages.");
     } finally {
@@ -69,6 +76,7 @@ export default function ChatPage() {
   }
 
   const messageListRef = useRef<HTMLDivElement>(null);
+  const newestMsgId = transcript.length ? transcript[transcript.length - 1].id : null;
 
   useEffect(() => {
     if (loading) return;
@@ -89,7 +97,7 @@ export default function ChatPage() {
       window.clearTimeout(timer1);
       window.clearTimeout(timer2);
     };
-  }, [loading, messages?.length]);
+  }, [loading, newestMsgId]);
 
   if (!user || !profile) return null;
 
@@ -193,11 +201,11 @@ export default function ChatPage() {
 
       <div ref={messageListRef} className="social-texture flex-1 space-y-3 overflow-y-auto px-3 py-3">
         {loading && <PlannerSkeleton />}
-        {!loading && messages?.length === 0 && (
+        {!loading && transcript.length === 0 && (
           <EmptyState emoji="💬" title="No messages yet" subtitle="Say hi to the class!" />
         )}
 
-        {!loading && (messages?.length ?? 0) > 0 && !noMoreOlder && (
+        {!loading && transcript.length > 0 && !noMoreOlder && (
           <div className="flex justify-center pb-1">
             <button
               onClick={handleLoadOlder}
@@ -209,11 +217,11 @@ export default function ChatPage() {
           </div>
         )}
         {noMoreOlder && (
-          <p className="pb-1 text-center text-[11px] text-ink-soft/70">
+          <p className="pb-1 text-center text-2xs text-ink-soft/70">
             Start of the conversation
           </p>
         )}
-        {[...older, ...(messages || [])].map((m) => (
+        {transcript.map((m) => (
           <MessageBubble
             key={m.id}
             message={{

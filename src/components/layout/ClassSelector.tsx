@@ -8,7 +8,7 @@ export default function ClassSelector() {
 
   return (
     <div className="space-y-1.5">
-      <p className="px-1 text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
+      <p className="px-1 text-2xs font-semibold uppercase tracking-wide text-ink-soft">
         {isTeacher ? 'Teacher target class' : 'Viewing class'}
       </p>
 

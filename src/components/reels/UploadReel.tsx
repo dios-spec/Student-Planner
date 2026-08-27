@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Film } from 'lucide-react';
 import Modal from '../shared/Modal';
 import { uploadReelVideo } from '../../firebase/storage';
@@ -12,6 +12,16 @@ export default function UploadReel({ open, onClose }: { open: boolean; onClose: 
   const { show } = useToast();
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
+
+  // Blob URLs pin the whole selected file in memory until revoked. reset() only
+  // cleared the state, so every "Change file" tap and every cancelled upload
+  // leaked the full file for the life of the tab -- up to 30 MB per pick on
+  // Reels, which is enough to get the tab killed on a phone.
+  useEffect(() => {
+    if (!preview) return;
+    return () => URL.revokeObjectURL(preview);
+  }, [preview]);
+
   const [caption, setCaption] = useState('');
   const [uploading, setUploading] = useState(false);
   const [err, setErr] = useState<string | null>(null);

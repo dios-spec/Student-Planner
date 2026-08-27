@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import DismissLayer from '../components/shared/DismissLayer';
 import { MoreVertical, Pencil, Trash2, ClipboardCheck, FolderKanban, Search } from 'lucide-react';
 import TopBar from '../components/layout/TopBar';
 import { useUpcoming } from '../hooks/useUpcoming';
@@ -93,7 +94,7 @@ export default function UpcomingPage() {
                         <SubjectPill subjectId={item.subject} size="sm" />
                         <span className="text-xs text-ink-soft">{CATEGORY_META[item.category].label}</span>
                         {(item.category === 'test' || item.category === 'project') && (
-                          <span className={`rounded-full px-2 py-0.5 text-[11px] font-semibold ${item.category === 'test' ? 'bg-coral-soft text-coral' : 'bg-accent-soft text-accent'}`}>
+                          <span className={`rounded-full px-2 py-0.5 text-2xs font-semibold ${item.category === 'test' ? 'bg-coral-soft text-coral' : 'bg-accent-soft text-accent'}`}>
                             {daysLeftLabel(item.dueDate || item.date)}
                           </span>
                         )}
@@ -112,7 +113,7 @@ export default function UpcomingPage() {
                       </button>
                       {menuFor === item.id && (
                         <>
-                          <div className="fixed inset-0 z-10" onClick={() => setMenuFor(null)} />
+                          <DismissLayer onDismiss={() => setMenuFor(null)} />
                           <div className="absolute right-0 top-8 z-20 w-32 overflow-hidden rounded-xl border border-line bg-surface shadow-lg">
                             <button
                               onClick={() => { setMenuFor(null); openEdit(item); }}

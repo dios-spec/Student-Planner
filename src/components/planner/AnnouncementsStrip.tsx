@@ -23,7 +23,7 @@ export default function AnnouncementsStrip() {
               {a.title} {a.forDate && <span className="font-normal text-ink-soft">· {relativeDayLabel(a.forDate)}</span>}
             </p>
             {a.body && <p className="text-xs text-ink-soft">{a.body}</p>}
-            <p className="mt-0.5 text-[11px] text-ink-soft/70">by {a.createdByName}</p>
+            <p className="mt-0.5 text-2xs text-ink-soft/70">by {a.createdByName}</p>
           </div>
           {isTeacher && (
             <button

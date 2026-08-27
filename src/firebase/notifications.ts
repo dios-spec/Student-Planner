@@ -35,7 +35,21 @@ export interface NewNotification {
   data?: Record<string, string>;
 }
 
-async function requestServerPush(notificationId: string, senderUid: string) {
+/** Notifications per /api/send-push request. Must not exceed the server's cap. */
+const PUSH_BATCH = 50;
+
+/**
+ * Ask the server to deliver push for these notifications.
+ *
+ * This used to be one HTTP request per recipient, each doing its own
+ * transaction plus a user read plus a device read. A single class message to
+ * 300 students therefore meant 300 serverless invocations and ~900 Firestore
+ * reads. The endpoint now accepts a batch, dedupes recipient reads inside it,
+ * and hands FCM one batched send.
+ */
+async function requestServerPush(notificationIds: string[], senderUid: string) {
+  if (!notificationIds.length) return;
+
   try {
     const user = auth.currentUser;
     if (!user || user.uid !== senderUid) return;
@@ -47,7 +61,7 @@ async function requestServerPush(notificationId: string, senderUid: string) {
         'Content-Type': 'application/json',
         Authorization: `Bearer ${idToken}`,
       },
-      body: JSON.stringify({ notificationId }),
+      body: JSON.stringify({ notificationIds }),
     });
 
     const result = await response.json().catch(() => ({}));
@@ -100,7 +114,7 @@ export async function pushNotification(n: NewNotification, fromUid?: string) {
     })
   );
 
-  void requestServerPush(ref.id, senderUid);
+  void requestServerPush([ref.id], senderUid);
 }
 
 /** Notify several users at once.
@@ -147,14 +161,11 @@ export async function pushToMany(
     }
   }
 
-  // Fire pushes in the background with bounded concurrency so we never open
-  // 100 simultaneous connections from a phone.
+  // One request per PUSH_BATCH recipients, in the background. Previously this
+  // opened one connection per recipient with a concurrency pool of 6.
   void (async () => {
-    const POOL = 6;
-    for (let i = 0; i < ids.length; i += POOL) {
-      await Promise.allSettled(
-        ids.slice(i, i + POOL).map((id) => requestServerPush(id, senderUid))
-      );
+    for (let i = 0; i < ids.length; i += PUSH_BATCH) {
+      await requestServerPush(ids.slice(i, i + PUSH_BATCH), senderUid);
     }
   })();
 }
@@ -267,11 +278,41 @@ export async function pruneOldNotifications(uid: string) {
   }
 }
 
+/**
+ * Types that exist only to drive the service worker (for example telling it to
+ * take a dead ringing-call notification off the lock screen). They are real
+ * documents because /api/send-push delivers from a document, but they are not
+ * things a person should ever see in their notification list, and they must not
+ * count towards the unread badge.
+ */
+const CONTROL_TYPES = new Set(['callEnded']);
+
+export function isControlNotification(type: string): boolean {
+  return CONTROL_TYPES.has(type);
+}
+
 export function watchNotifications(uid: string, cb: (items: AppNotification[]) => void) {
   const q = query(col, where('userId', '==', uid), orderBy('createdAt', 'desc'), limit(50));
   return onSnapshot(q, (snap) => {
-    cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification));
-  });
+    const all = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as AppNotification);
+
+      // Control documents have done their job by the time they arrive here
+      // (the push has already been dispatched from them). Delete them as they
+      // are seen -- free, and it needs no extra query or composite index.
+      all
+        .filter((n) => isControlNotification(n.type))
+        .forEach((n) => void deleteDoc(doc(col, n.id)).catch(() => {}));
+
+      cb(all.filter((n) => !isControlNotification(n.type)));
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[NOTIF] watchNotifications failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function markNotificationRead(id: string) {

@@ -55,6 +55,7 @@ export default function AddPeriodSheet({ open, onClose, editingPeriod, existingP
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Period number</label>
           <input
+              aria-label="Period number"
             type="number"
             min={1}
             max={12}
@@ -66,6 +67,7 @@ export default function AddPeriodSheet({ open, onClose, editingPeriod, existingP
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Subject</label>
           <input
+              aria-label="Subject"
             value={subject}
             onChange={(e) => setSubject(e.target.value)}
             placeholder="e.g. Mathematics"
@@ -75,6 +77,7 @@ export default function AddPeriodSheet({ open, onClose, editingPeriod, existingP
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Teacher (optional)</label>
           <input
+              aria-label="Teacher (optional)"
             value={teacher}
             onChange={(e) => setTeacher(e.target.value)}
             placeholder="e.g. Mr. Sharma"
@@ -84,6 +87,7 @@ export default function AddPeriodSheet({ open, onClose, editingPeriod, existingP
         <div>
           <label className="mb-1.5 block text-sm font-semibold text-ink">Room (optional)</label>
           <input
+              aria-label="Room (optional)"
             value={room}
             onChange={(e) => setRoom(e.target.value)}
             placeholder="e.g. Room 204"

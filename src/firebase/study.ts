@@ -58,7 +58,15 @@ export function watchStudyMaterials(classId: string, cb: (items: StudyMaterial[]
   const q = query(col, where('classId', '==', classId), orderBy('createdAt', 'desc'));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as StudyMaterial));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[STUDY] watchStudyMaterials failed:', err);
+      cb([]);
+    }
+  );
 }
 
 /** Bounded class-scoped read used by app-wide search. */

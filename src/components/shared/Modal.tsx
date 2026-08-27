@@ -111,7 +111,9 @@ export default function Modal({ open, onClose, title, children, fullHeight }: Mo
             <X size={20} />
           </button>
         </div>
-        <div className="overflow-y-auto px-5 py-4">{children}</div>
+        <div className="overflow-y-auto px-5 pt-4 pb-[calc(1rem+env(safe-area-inset-bottom))] sm:pb-4">
+          {children}
+        </div>
       </div>
     </div>,
     document.body

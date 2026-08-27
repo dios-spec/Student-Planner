@@ -26,7 +26,7 @@ export default function BottomNav() {
             to={to}
             end={end}
             className={({ isActive }) =>
-              `relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-[10px] font-medium transition-colors ${
+              `relative flex min-h-14 min-w-0 flex-1 flex-col items-center justify-center gap-0.5 px-1 py-1.5 text-3xs font-medium transition-colors ${
                 isActive ? 'text-accent' : 'text-ink-soft'
               }`
             }
@@ -39,7 +39,7 @@ export default function BottomNav() {
                 <div className={`relative mt-1 transition-transform duration-200 ${isActive ? 'scale-110' : 'scale-100'}`}>
                   <Icon size={20} strokeWidth={isActive ? 2.4 : 2} />
                   {dm && totalUnread > 0 && (
-                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-[9px] font-bold text-white">
+                    <span className="absolute -right-2 -top-1.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-coral px-1 text-3xs font-bold text-white">
                       {totalUnread > 9 ? '9+' : totalUnread}
                     </span>
                   )}

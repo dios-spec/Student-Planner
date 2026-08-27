@@ -102,6 +102,7 @@ export default function EditProfileForm({ onDone }: { onDone: () => void }) {
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-ink">Display name</label>
         <input
+              aria-label="Display name"
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={MAX_NAME_LENGTH}
@@ -112,6 +113,7 @@ export default function EditProfileForm({ onDone }: { onDone: () => void }) {
       <div>
         <label className="mb-1.5 block text-sm font-semibold text-ink">Status / description</label>
         <input
+              aria-label="Status / description"
           value={bio}
           onChange={(e) => setBio(e.target.value)}
           maxLength={MAX_BIO_LENGTH}

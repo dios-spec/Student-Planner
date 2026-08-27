@@ -74,7 +74,7 @@ export default function MessageBubble({
 
         <div className={`relative rounded-2xl px-3.5 py-2.5 text-sm ${isMine ? 'rounded-tr-sm bg-accent text-white' : 'rounded-tl-sm bg-surface text-ink'}`}>
           {message.imageUrl && (
-            <img src={message.imageUrl} alt="Shared" onClick={() => onImageClick(message.imageUrl!)} className="mb-1 max-h-56 w-full cursor-pointer rounded-xl object-cover" />
+            <img loading="lazy" decoding="async" src={message.imageUrl} alt="Shared" onClick={() => onImageClick(message.imageUrl!)} className="mb-1 max-h-56 w-full cursor-pointer rounded-xl object-cover" />
           )}
           {message.audioUrl && <VoicePlayer url={message.audioUrl} duration={message.audioDuration} mine={isMine} />}
           {message.poll && (
@@ -106,7 +106,7 @@ export default function MessageBubble({
         </div>
 
         <div className="mt-0.5 flex items-center gap-2 px-1">
-          <span className="text-[11px] text-ink-soft">{relativeTime(createdDate)}{message.edited ? ' · edited' : ''}</span>
+          <span className="text-2xs text-ink-soft">{relativeTime(createdDate)}{message.edited ? ' · edited' : ''}</span>
           <button onClick={() => setPickerOpen((o) => !o)} className="text-ink-soft hover:text-accent"><SmilePlus size={14} /></button>
           <button onClick={onReply} aria-label="Reply to message" className="text-ink-soft hover:text-accent"><Reply size={14} /></button>
           <button onClick={() => setMenuOpen((o) => !o)} className="text-ink-soft hover:text-accent">•••</button>

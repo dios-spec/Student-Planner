@@ -243,7 +243,7 @@ export default function AccountUpgradePrompt() {
             Maybe later
           </button>
 
-          <p className="mt-1 text-center text-[11px] leading-4 text-ink-soft">
+          <p className="mt-1 text-center text-2xs leading-4 text-ink-soft">
             If you choose Maybe later, this reminder can appear again the next time Buddy Planner starts.
           </p>
         </div>

@@ -3,7 +3,6 @@ import {
   collection,
   limit,
   onSnapshot,
-  orderBy,
   query,
   serverTimestamp,
   where,
@@ -55,29 +54,44 @@ export function watchMeritRecords(studentId: string, cb: (records: MeritRecord[]
         .map((d) => ({ id: d.id, ...d.data() }) as MeritRecord)
         .sort(byNewest)
     );
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[MERIT] watchMeritRecords failed:', err);
+      cb([]);
+    }
+  );
 }
 
-/** Teacher dashboard listener. Kept live so manual Firestore corrections appear immediately.
- *  BUG-10: this was an UNBOUNDED listener on the whole collection, mounted
- *  app-wide for every user on every load. meritRecords grows all year, so every
- *  student re-downloaded the entire history on every app open. Bounded to the
- *  most recent MERIT_WINDOW records, newest first. */
-const MERIT_WINDOW = 400;
+/** Teacher dashboard listener, scoped to ONE class.
+ *
+ *  This replaces watchAllMeritRecords, which took the newest 400 records
+ *  school-wide. That window was never a correct per-student source: once the
+ *  school passed 400 records, points earned earlier in the year fell out of it
+ *  and every roster total silently shrank. It was also mounted app-wide for
+ *  every user, so every student downloaded school-wide merit history on every
+ *  app open.
+ *
+ *  Scoping to the active class keeps the result exact for the roster it feeds
+ *  (a class-year of awards is on the order of a few hundred records) and uses
+ *  only the automatic single-field index on classId. */
+const CLASS_MERIT_LIMIT = 2000;
 
-export function watchAllMeritRecords(cb: (records: MeritRecord[]) => void) {
-  const q = query(meritCol, orderBy('createdAt', 'desc'), limit(MERIT_WINDOW));
+export function watchClassMeritRecords(
+  classId: string,
+  cb: (records: MeritRecord[]) => void,
+  max = CLASS_MERIT_LIMIT
+) {
+  const q = query(meritCol, where('classId', '==', classId), limit(max));
   return onSnapshot(
     q,
     (snap) => {
-      cb(
-        snap.docs
-          .map((d) => ({ id: d.id, ...d.data() }) as MeritRecord)
-          .sort(byNewest)
-      );
+      cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as MeritRecord).sort(byNewest));
     },
     (err) => {
-      console.error('[MERIT] watchAllMeritRecords failed:', err);
+      console.error('[MERIT] watchClassMeritRecords failed:', classId, err);
       cb([]);
     }
   );

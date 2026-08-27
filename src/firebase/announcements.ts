@@ -40,7 +40,15 @@ export function watchAnnouncements(classId: string, cb: (items: Announcement[]) 
   const q = query(col, where('classId', '==', classId), orderBy('createdAt', 'desc'), limit(20));
   return onSnapshot(q, (snap) => {
     cb(snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Announcement));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[ANNOUNCE] watchAnnouncements failed:', err);
+      cb([]);
+    }
+  );
 }
 
 /** Bounded class-scoped read used by app-wide search. */

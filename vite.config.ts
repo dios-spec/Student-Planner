@@ -14,7 +14,7 @@ export default defineConfig({
       manifest: {
         name: 'Student Buddy Planner',
         short_name: 'Buddy Planner',
-        description: 'Homework, tests, projects and class chat â€” all in one place.',
+        description: 'Homework, tests, projects and class chat - all in one place.',
         id: '/',
         scope: '/',
         lang: 'en-IN',
@@ -37,9 +37,14 @@ export default defineConfig({
       },
       workbox: {
         globPatterns: ['**/*.{js,css,html,svg,png,ico,webp}'],
+        // These two are the FCM service worker and the script it importScripts().
+        // They are not app-shell assets, they are fetched by the browser's worker
+        // machinery rather than through this worker, and precaching them only
+        // adds revisioned copies of a service worker to the app shell cache.
+        globIgnores: ['firebase-messaging-sw.js', 'notification-presentation.js'],
         cleanupOutdatedCaches: true,
         navigateFallback: '/index.html',
-        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/firebase-cloud-messaging-push-scope/, /^\/__\/auth\//],
+        navigateFallbackDenylist: [/^\/api\//, /^\/\.well-known\//, /^\/firebase-cloud-messaging-push-scope/, /^\/firebase-messaging-sw\.js$/, /^\/notification-presentation\.js$/, /^\/__\/auth\//],
         runtimeCaching: [
           {
             urlPattern: /^https:\/\/fonts\.googleapis\.com\/.*/i,

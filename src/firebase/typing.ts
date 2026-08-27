@@ -17,7 +17,15 @@ function liveEntries(
 export function watchClassTyping(myUid: string, cb: (names: string[]) => void) {
   return onSnapshot(classTypingRef, (snap) => {
     cb(liveEntries(snap.exists() ? snap.data().typing : undefined, myUid));
-  });
+  },
+    (err) => {
+      // A rules denial or a lost listener used to fail silently here:
+      // onSnapshot's next-callback never fires again, so any UI whose
+      // loading flag is derived from 'no data yet' spins forever.
+      console.error('[TYPING] watchClassTyping failed:', err);
+      cb([]);
+    }
+  );
 }
 
 export async function setClassTyping(uid: string, name: string, isTyping: boolean) {

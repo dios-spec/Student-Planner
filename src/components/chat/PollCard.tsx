@@ -1,5 +1,6 @@
 import { Check } from 'lucide-react';
 import type { Poll } from '../../types';
+import { tallyPoll } from '../../utils/pollTally';
 
 interface PollCardProps {
   poll: Poll;
@@ -10,16 +11,16 @@ interface PollCardProps {
 }
 
 export default function PollCard({ poll, myUid, mine, onVote, onClose }: PollCardProps) {
-  const totalVotes = new Set(poll.options.flatMap((o) => o.votes)).size;
+  const tally = tallyPoll(poll.options, poll.allowMultiple);
   const isCreator = poll.createdBy === myUid;
 
   return (
-    <div className={'mt-0.5 w-full min-w-[220px] rounded-xl border p-3 ' + (mine ? 'border-white/25 bg-white/10' : 'border-line bg-surface-alt')}>
+    <div className={'mt-0.5 w-full min-w-[min(220px,100%)] rounded-xl border p-3 ' + (mine ? 'border-white/25 bg-white/10' : 'border-line bg-surface-alt')}>
       <p className={'mb-2 text-sm font-semibold ' + (mine ? 'text-white' : 'text-ink')}>{poll.question}</p>
       <div className="space-y-1.5">
-        {poll.options.map((opt) => {
+        {poll.options.map((opt, index) => {
           const voted = opt.votes.includes(myUid);
-          const pct = totalVotes > 0 ? Math.round((opt.votes.length / totalVotes) * 100) : 0;
+          const pct = tally.options[index]?.pct ?? 0;
           return (
             <button
               key={opt.id}
@@ -43,11 +44,13 @@ export default function PollCard({ poll, myUid, mine, onVote, onClose }: PollCar
         })}
       </div>
       <div className="mt-1.5 flex items-center justify-between">
-        <span className={'text-[11px] ' + (mine ? 'text-white/60' : 'text-ink-soft')}>
-          {totalVotes} {totalVotes === 1 ? 'vote' : 'votes'} {poll.closed ? '· Closed' : ''}
+        <span className={'text-2xs ' + (mine ? 'text-white/60' : 'text-ink-soft')}>
+          {tally.summary}
+          {poll.allowMultiple && tally.voters > 0 ? ' · pick more than one' : ''}
+          {poll.closed ? ' · Closed' : ''}
         </span>
         {isCreator && !poll.closed && onClose && (
-          <button onClick={onClose} className={'text-[11px] font-medium ' + (mine ? 'text-white/80' : 'text-accent')}>
+          <button onClick={onClose} className={'text-2xs font-medium ' + (mine ? 'text-white/80' : 'text-accent')}>
             Close poll
           </button>
         )}

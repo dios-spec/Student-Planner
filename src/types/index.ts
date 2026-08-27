@@ -330,7 +330,9 @@ export type NotifType =
   | 'classMessage'
   | 'classReaction'
   | 'studyHelp'
-  | 'storyNew' | 'reelLike' | 'storyLike';
+  | 'storyNew' | 'reelLike' | 'storyLike'
+  // Control payload for the service worker; never rendered in the app.
+  | 'callEnded';
 
 export interface AppNotification {
   id: string;

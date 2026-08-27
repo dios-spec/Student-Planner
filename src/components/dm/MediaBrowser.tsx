@@ -102,7 +102,7 @@ export default function MediaBrowser({
           <div className="grid grid-cols-3 gap-1.5">
             {items.map((m) => (
               <button key={m.id} onClick={() => m.imageUrl && setPreviewUrl(m.imageUrl)} className="aspect-square overflow-hidden rounded-lg bg-surface-alt">
-                <img src={m.imageUrl} alt="" className="h-full w-full object-cover" />
+                <img loading="lazy" decoding="async" src={m.imageUrl} alt="" className="h-full w-full object-cover" />
               </button>
             ))}
           </div>
@@ -113,7 +113,7 @@ export default function MediaBrowser({
             {items.map((m) => (
               <div key={m.id} className="rounded-xl border border-line bg-surface p-3">
                 <p className="break-words text-sm text-ink">{m.text ? linkify(m.text) : ''}</p>
-                <p className="mt-1 text-[11px] text-ink-soft">
+                <p className="mt-1 text-2xs text-ink-soft">
                   {m.senderName} · {m.createdAt?.toDate ? relativeTime(m.createdAt.toDate()) : ''}
                 </p>
               </div>
@@ -128,7 +128,7 @@ export default function MediaBrowser({
                 <Avatar name={m.senderName} src={m.senderAvatar} size="sm" />
                 <div className="min-w-0 flex-1">
                   {m.audioUrl && <VoicePlayer url={m.audioUrl} duration={m.audioDuration} mine={false} />}
-                  <p className="mt-1 text-[11px] text-ink-soft">
+                  <p className="mt-1 text-2xs text-ink-soft">
                     {m.senderName} · {m.createdAt?.toDate ? relativeTime(m.createdAt.toDate()) : ''}
                   </p>
                 </div>
@@ -142,7 +142,7 @@ export default function MediaBrowser({
             {items.map((m) => (
               <div key={m.id} className="rounded-xl border border-line bg-surface p-2.5">
                 {m.shared && <SharedPreview shared={m.shared} onOpen={() => onOpenShared(m.shared!)} />}
-                <p className="mt-1.5 px-0.5 text-[11px] text-ink-soft">
+                <p className="mt-1.5 px-0.5 text-2xs text-ink-soft">
                   {m.senderName} · {m.createdAt?.toDate ? relativeTime(m.createdAt.toDate()) : ''}
                 </p>
               </div>

@@ -11,7 +11,7 @@ import AwardMeritModal from '../components/merit/AwardMeritModal';
 import { useAuth } from '../context/AuthContext';
 import { useActiveClass } from '../context/ClassContext';
 import { calculateMeritStats } from '../firebase/merits';
-import { useMeritRecords, useMeritRoster } from '../hooks/useMeritRecords';
+import { useClassMeritRecords, useMeritRecords, useMeritRoster } from '../hooks/useMeritRecords';
 import { isClassId } from '../data/classes';
 import type { MeritKind, MeritRecord, StudentProfile } from '../types';
 
@@ -54,7 +54,11 @@ function StudentMeritPage({ uid }: { uid: string }) {
 
 function TeacherMeritManager() {
   const { activeClass } = useActiveClass();
-  const { profiles, records } = useMeritRoster();
+  const { profiles } = useMeritRoster();
+  // Exact, class-scoped merit history. Previously these totals came from a
+  // school-wide newest-400 window, so every roster figure quietly went wrong
+  // once the school passed 400 records.
+  const { records } = useClassMeritRecords(activeClass);
   const [query, setQuery] = useState('');
   const [awardStudent, setAwardStudent] = useState<StudentProfile | null>(null);
   const [awardKind, setAwardKind] = useState<MeritKind>('merit');
@@ -102,6 +106,7 @@ function TeacherMeritManager() {
         <label className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2.5">
           <Search size={16} className="text-ink-soft" />
           <input
+            aria-label={`Search ${activeClass} students`}
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder={`Search ${activeClass} students...`}
